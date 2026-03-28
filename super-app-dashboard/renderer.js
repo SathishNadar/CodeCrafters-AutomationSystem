@@ -481,16 +481,219 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationsHistory.unshift(data);
         if (notificationsHistory.length > 50) notificationsHistory.pop();
         updateNotificationsView();
+        // Also update Unified Inbox email tab if it's visible
+        updateInboxEmailTab();
+        updateInboxBadges();
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // 6. WhatsApp Unified Inbox
+    // ══════════════════════════════════════════════════════════
+    let whatsappHistory = [];
+    let currentWaReplyContext = null;   // { msg, analysis, timestamp }
+    let currentEmailInboxContext = null; // For email reply from Unified Inbox
+
+    const WA_PRIORITY_STYLES = {
+        'High':   { dotClass: 'priority-dot-high',   textClass: 'priority-text-high',   borderClass: 'priority-high',   icon: '🔴', label: 'HIGH' },
+        'Medium': { dotClass: 'priority-dot-medium', textClass: 'priority-text-medium', borderClass: 'priority-medium', icon: '🟡', label: 'MED' },
+        'Low':    { dotClass: 'priority-dot-low',    textClass: 'priority-text-low',    borderClass: 'priority-low',    icon: '🔵', label: 'LOW' },
+    };
+
+    function renderWhatsAppCard(data, index) {
+        const { msg, analysis, timestamp } = data;
+        const style = WA_PRIORITY_STYLES[analysis.priority] || WA_PRIORITY_STYLES['Medium'];
+        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const preview = (msg.body || '').substring(0, 120) + ((msg.body || '').length > 120 ? '...' : '');
+        return `
+            <div class="glass-panel rounded-2xl p-5 border-l-4 ${style.borderClass} flex flex-col hover:translate-x-1 transition-all gap-3">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 mt-0.5 text-lg">
+                        💬
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full ${style.dotClass} shrink-0"></span>
+                                <span class="text-[10px] font-bold uppercase tracking-widest ${style.textClass}">${style.label}</span>
+                                <span class="text-[10px] text-dynamic-variant opacity-50">•</span>
+                                <span class="text-[10px] text-dynamic-variant uppercase tracking-widest font-bold">${analysis.sender || msg.contact || 'Unknown'}</span>
+                            </div>
+                            <span class="text-[10px] text-dynamic-variant font-medium">${timeStr}</span>
+                        </div>
+                        <h4 class="font-bold text-dynamic text-sm truncate mb-1">${analysis.task || 'Message received'}</h4>
+                        <p class="text-xs text-dynamic-variant leading-relaxed opacity-70 italic line-clamp-2">&ldquo;${preview}&rdquo;</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between pl-14">
+                    <button data-wa-index="${index}" class="wa-reply-btn text-[11px] px-3 py-1.5 bg-[var(--surface-high)] border border-[var(--outline-var)] rounded-md text-dynamic-variant hover:text-white hover:bg-green-600 hover:border-green-600 transition-all font-bold flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">reply</span> Reply
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderInboxEmailCard(data, index) {
+        const { email, analysis, timestamp } = data;
+        const style = PRIORITY_STYLES[analysis.priority] || PRIORITY_STYLES['Low'];
+        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `
+            <div class="glass-panel rounded-2xl p-5 border-l-4 ${style.border} flex flex-col hover:translate-x-1 transition-all gap-3">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full ${style.bg} ${style.text} flex items-center justify-center shrink-0 mt-0.5">
+                        <span class="material-symbols-outlined text-sm">${style.icon}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-bold uppercase tracking-widest ${style.text}">${analysis.priority}</span>
+                                <span class="text-[10px] text-dynamic-variant opacity-50">•</span>
+                                <span class="text-[10px] text-dynamic-variant uppercase tracking-widest font-bold">${analysis.sender || email.from.split('<')[0].trim()}</span>
+                            </div>
+                            <span class="text-[10px] text-dynamic-variant font-medium">${timeStr}</span>
+                        </div>
+                        <h4 class="font-bold text-dynamic text-sm truncate mb-1">${analysis.task}</h4>
+                        <p class="text-xs text-dynamic-variant leading-relaxed opacity-70 italic line-clamp-1">&ldquo;${email.subject}&rdquo;</p>
+                        ${analysis.deadline !== 'None' ? `<div class="mt-1 text-[10px] font-bold text-red-400 flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">calendar_today</span> Due: ${analysis.deadline}</div>` : ''}
+                    </div>
+                </div>
+                <div class="pl-14">
+                    <button data-inbox-email-index="${index}" class="inbox-email-reply-btn text-[11px] px-3 py-1.5 bg-[var(--surface-high)] border border-[var(--outline-var)] rounded-md text-dynamic-variant hover:text-white hover:bg-primary-dynamic hover:border-primary-dynamic transition-all font-bold flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">reply</span> Reply
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Called whenever whatsappHistory changes. Refreshes the WhatsApp tab if inbox is loaded.
+     */
+    function updateInboxWaTab() {
+        const list = document.getElementById('inbox-wa-list');
+        const empty = document.getElementById('inbox-wa-empty');
+        if (!list) return;
+
+        const cards = whatsappHistory.map((d, i) => renderWhatsAppCard(d, i)).join('');
+        Array.from(list.children).forEach(c => { if (c.id !== 'inbox-wa-empty') c.remove(); });
+
+        if (whatsappHistory.length > 0) {
+            if (empty) empty.style.display = 'none';
+            list.insertAdjacentHTML('beforeend', cards);
+            list.querySelectorAll('.wa-reply-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.currentTarget.getAttribute('data-wa-index'));
+                    openWaReplyModal(whatsappHistory[idx]);
+                });
+            });
+        } else {
+            if (empty) empty.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Refreshes the Email tab inside Unified Inbox.
+     */
+    function updateInboxEmailTab() {
+        const list = document.getElementById('inbox-email-list');
+        const empty = document.getElementById('inbox-email-empty');
+        if (!list) return;
+
+        const cards = notificationsHistory.map((d, i) => renderInboxEmailCard(d, i)).join('');
+        Array.from(list.children).forEach(c => { if (c.id !== 'inbox-email-empty') c.remove(); });
+
+        if (notificationsHistory.length > 0) {
+            if (empty) empty.style.display = 'none';
+            list.insertAdjacentHTML('beforeend', cards);
+            list.querySelectorAll('.inbox-email-reply-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.currentTarget.getAttribute('data-inbox-email-index'));
+                    openInboxEmailReplyModal(notificationsHistory[idx]);
+                });
+            });
+        } else {
+            if (empty) empty.style.display = 'flex';
+        }
+    }
+
+    /** Updates the count badges on the tabs. */
+    function updateInboxBadges() {
+        const emailBadge = document.getElementById('email-badge');
+        const waBadge = document.getElementById('wa-badge');
+        if (emailBadge) {
+            emailBadge.textContent = notificationsHistory.length;
+            emailBadge.classList.toggle('hidden', notificationsHistory.length === 0);
+        }
+        if (waBadge) {
+            waBadge.textContent = whatsappHistory.length;
+            waBadge.classList.toggle('hidden', whatsappHistory.length === 0);
+        }
+    }
+
+    /** Opens the WhatsApp reply modal. */
+    function openWaReplyModal(data) {
+        currentWaReplyContext = data;
+        const toEl = document.getElementById('inbox-wa-reply-to');
+        const originalEl = document.getElementById('inbox-wa-original-body');
+        const contentEl = document.getElementById('inbox-wa-reply-content');
+        if (toEl) toEl.textContent = data.msg.contact || data.msg.from;
+        if (originalEl) originalEl.textContent = data.msg.body || '';
+        if (contentEl) contentEl.value = '';
+        document.getElementById('inbox-wa-reply-modal')?.classList.remove('hidden');
+    }
+
+    function closeWaReplyModal() {
+        document.getElementById('inbox-wa-reply-modal')?.classList.add('hidden');
+        currentWaReplyContext = null;
+    }
+
+    /** Opens the email reply modal inside Unified Inbox. */
+    function openInboxEmailReplyModal(data) {
+        currentEmailInboxContext = data;
+        const { email, analysis } = data;
+        const rawFrom = email.from || '';
+        const match = rawFrom.match(/<([^>]+)>/);
+        let toEmail = match ? match[1] : rawFrom;
+        toEmail = toEmail.replace(/["']/g, '').trim();
+
+        const toEl = document.getElementById('inbox-email-reply-to');
+        const subjectEl = document.getElementById('inbox-email-reply-subject');
+        const bodyEl = document.getElementById('inbox-email-original-body');
+        const contentEl = document.getElementById('inbox-email-reply-content');
+
+        if (toEl) toEl.textContent = toEmail;
+        if (subjectEl) subjectEl.value = email.subject.toLowerCase().startsWith('re:') ? email.subject : `Re: ${email.subject}`;
+        if (bodyEl) bodyEl.textContent = email.fullContent ? email.fullContent.trim() : (email.snippet || '(No content available)');
+        if (contentEl) contentEl.value = '';
+        document.getElementById('inbox-email-reply-modal')?.classList.remove('hidden');
+    }
+
+    function closeInboxEmailReplyModal() {
+        document.getElementById('inbox-email-reply-modal')?.classList.add('hidden');
+        currentEmailInboxContext = null;
+    }
+
+    // ── IPC: Receive incoming WhatsApp messages ──
+    ipcRenderer.on('new-whatsapp-message', (_, data) => {
+        whatsappHistory.unshift(data);
+        if (whatsappHistory.length > 50) whatsappHistory.pop();
+        // Update WhatsApp status dot to connected when first message arrives
+        const dot = document.getElementById('wa-status-dot');
+        const txt = document.getElementById('wa-status-text');
+        if (dot) { dot.classList.remove('bg-yellow-500'); dot.classList.add('bg-green-500'); }
+        if (txt) txt.textContent = 'Connected';
+        updateInboxWaTab();
+        updateInboxBadges();
     });
 
     // Modified attachViewListeners to include notifications view logic
     const originalAttachViewListeners = attachViewListeners;
     attachViewListeners = (viewName) => {
         originalAttachViewListeners(viewName);
-        
+
         if (viewName === 'notifications') {
             updateNotificationsView();
-            
+
             const clearBtn = document.getElementById('clear-notifications');
             if (clearBtn) {
                 clearBtn.addEventListener('click', () => {
@@ -507,64 +710,152 @@ document.addEventListener('DOMContentLoaded', () => {
                     liveFeedBtn.classList.add('opacity-70', 'pointer-events-none');
                     try {
                         await ipcRenderer.invoke('force-email-sync');
-                        // Wait a sec for the UI events to come back
                         await new Promise(r => setTimeout(r, 1000));
                     } catch (e) {
-                         console.error(e);
+                        console.error(e);
                     } finally {
                         liveFeedBtn.innerHTML = originalText;
                         liveFeedBtn.classList.remove('opacity-70', 'pointer-events-none');
                     }
                 });
             }
-            
+
             // Modal Listeners
             document.getElementById('close-reply-modal')?.addEventListener('click', closeReplyModal);
             document.getElementById('cancel-reply-btn')?.addEventListener('click', closeReplyModal);
-            
+
             const sendBtn = document.getElementById('send-reply-btn');
             if (sendBtn) {
-                // Must clone/replace to prevent duplicate listeners if re-entering the view
                 const newSendBtn = sendBtn.cloneNode(true);
                 sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
-                
                 newSendBtn.addEventListener('click', async () => {
                     if (!currentReplyContext) return;
-                    
                     const to = document.getElementById('reply-to-address').textContent.trim();
                     const subject = document.getElementById('reply-subject').value;
                     const userReplyText = document.getElementById('reply-content').value;
-                    
                     if (!userReplyText.trim()) return;
-                    
-                    newSendBtn.innerText = "Sending...";
+                    newSendBtn.innerText = 'Sending...';
                     newSendBtn.classList.add('opacity-50', 'pointer-events-none');
-                    
                     const originalEmailText = currentReplyContext.email.fullContent || currentReplyContext.email.snippet;
-                    // Append original email context
                     const fullContent = `${userReplyText}\n\nOn ${new Date().toLocaleString()}, ${to} wrote:\n> ${originalEmailText.replace(/\n/g, '\n> ')}`;
-                    
                     try {
                         const res = await ipcRenderer.invoke('send-email-reply', {
-                            to,
-                            subject: subject.trim(),
-                            content: fullContent,
+                            to, subject: subject.trim(), content: fullContent,
                             threadId: currentReplyContext.email.threadId,
                             messageId: currentReplyContext.email.messageId
                         });
-                        
-                        if (res.success) {
-                            closeReplyModal();
-                            // Optional: Show a little toast
-                        } else {
-                            alert("Failed to send: " + res.error);
-                        }
+                        if (res.success) { closeReplyModal(); } else { alert('Failed to send: ' + res.error); }
                     } catch (e) {
                         console.error(e);
-                        alert("Error sending reply.");
+                        alert('Error sending reply.');
                     } finally {
                         newSendBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">send</span> Send Reference Task`;
                         newSendBtn.classList.remove('opacity-50', 'pointer-events-none');
+                    }
+                });
+            }
+        }
+
+        // ── Unified Inbox View ──
+        if (viewName === 'unified-inbox') {
+            // Populate both tabs
+            updateInboxEmailTab();
+            updateInboxWaTab();
+            updateInboxBadges();
+
+            // Tab switching
+            document.querySelectorAll('.inbox-tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.inbox-tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.inbox-panel').forEach(p => p.classList.add('hidden'));
+                    btn.classList.add('active');
+                    const tab = btn.getAttribute('data-inbox-tab');
+                    document.getElementById(`inbox-panel-${tab}`)?.classList.remove('hidden');
+                });
+            });
+
+            // Sync email button
+            const syncBtn = document.getElementById('inbox-sync-btn');
+            if (syncBtn) {
+                syncBtn.addEventListener('click', async () => {
+                    const orig = syncBtn.innerHTML;
+                    syncBtn.innerHTML = `<span class="material-symbols-outlined text-[14px] animate-spin">sync</span> Syncing...`;
+                    syncBtn.classList.add('opacity-70', 'pointer-events-none');
+                    try { await ipcRenderer.invoke('force-email-sync'); await new Promise(r => setTimeout(r, 1000)); }
+                    catch (e) { console.error(e); }
+                    finally { syncBtn.innerHTML = orig; syncBtn.classList.remove('opacity-70', 'pointer-events-none'); }
+                });
+            }
+
+            // Clear all button
+            const clearBtn = document.getElementById('inbox-clear-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    notificationsHistory = [];
+                    whatsappHistory = [];
+                    updateInboxEmailTab();
+                    updateInboxWaTab();
+                    updateInboxBadges();
+                });
+            }
+
+            // ── Email Reply Modal (Unified Inbox) ──
+            document.getElementById('inbox-email-modal-close')?.addEventListener('click', closeInboxEmailReplyModal);
+            document.getElementById('inbox-email-modal-cancel')?.addEventListener('click', closeInboxEmailReplyModal);
+
+            const inboxEmailSend = document.getElementById('inbox-email-modal-send');
+            if (inboxEmailSend) {
+                const newBtn = inboxEmailSend.cloneNode(true);
+                inboxEmailSend.parentNode.replaceChild(newBtn, inboxEmailSend);
+                newBtn.addEventListener('click', async () => {
+                    if (!currentEmailInboxContext) return;
+                    const to = document.getElementById('inbox-email-reply-to').textContent.trim();
+                    const subject = document.getElementById('inbox-email-reply-subject').value;
+                    const userReplyText = document.getElementById('inbox-email-reply-content').value;
+                    if (!userReplyText.trim()) return;
+                    newBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">hourglass_top</span> Sending...`;
+                    newBtn.classList.add('opacity-60', 'pointer-events-none');
+                    const originalEmailText = currentEmailInboxContext.email.fullContent || currentEmailInboxContext.email.snippet;
+                    const fullContent = `${userReplyText}\n\nOn ${new Date().toLocaleString()}, ${to} wrote:\n> ${originalEmailText.replace(/\n/g, '\n> ')}`;
+                    try {
+                        const res = await ipcRenderer.invoke('send-email-reply', {
+                            to, subject: subject.trim(), content: fullContent,
+                            threadId: currentEmailInboxContext.email.threadId,
+                            messageId: currentEmailInboxContext.email.messageId
+                        });
+                        if (res.success) { closeInboxEmailReplyModal(); } else { alert('Failed: ' + res.error); }
+                    } catch (e) { console.error(e); alert('Error sending email reply.'); }
+                    finally {
+                        newBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">send</span> Send Email`;
+                        newBtn.classList.remove('opacity-60', 'pointer-events-none');
+                    }
+                });
+            }
+
+            // ── WhatsApp Reply Modal ──
+            document.getElementById('inbox-wa-modal-close')?.addEventListener('click', closeWaReplyModal);
+            document.getElementById('inbox-wa-modal-cancel')?.addEventListener('click', closeWaReplyModal);
+
+            const waSendBtn = document.getElementById('inbox-wa-modal-send');
+            if (waSendBtn) {
+                const newWaBtn = waSendBtn.cloneNode(true);
+                waSendBtn.parentNode.replaceChild(newWaBtn, waSendBtn);
+                newWaBtn.addEventListener('click', async () => {
+                    if (!currentWaReplyContext) return;
+                    const text = document.getElementById('inbox-wa-reply-content').value.trim();
+                    if (!text) return;
+                    newWaBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">hourglass_top</span> Sending...`;
+                    newWaBtn.classList.add('opacity-60', 'pointer-events-none');
+                    try {
+                        const res = await ipcRenderer.invoke('send-whatsapp-reply', {
+                            chatId: currentWaReplyContext.msg.from,
+                            text
+                        });
+                        if (res.success) { closeWaReplyModal(); } else { alert('Failed: ' + res.error); }
+                    } catch (e) { console.error(e); alert('Error sending WhatsApp reply.'); }
+                    finally {
+                        newWaBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">send</span> Send via WhatsApp`;
+                        newWaBtn.classList.remove('opacity-60', 'pointer-events-none');
                     }
                 });
             }
@@ -574,4 +865,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Default Initialization
     loadView('dashboard');
 });
-
