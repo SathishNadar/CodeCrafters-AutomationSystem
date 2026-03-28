@@ -1,0 +1,24 @@
+{
+  "name": "code_crafters_scoe",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^41.1.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.14.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "googleapis": "^171.4.0",
+    "open": "^11.0.0",
+    "openai": "^6.33.0"
+  }
+}

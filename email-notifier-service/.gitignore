@@ -1,0 +1,12 @@
+# Environment & Secrets
+.env
+credentials.json
+token.json
+seen_emails.json
+
+# Dependencies
+node_modules/
+
+# OS/Tooling
+.DS_Store
+*.log
