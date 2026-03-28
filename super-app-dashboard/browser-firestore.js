@@ -35,6 +35,7 @@ const firebaseConfig = {
     storageBucket: "automationsystem-atrangss.firebasestorage.app",
     messagingSenderId: "145891927022",
     appId: "1:145891927022:web:c1a7de76e2e19aa2b164ff",
+    measurementId: "G-4WE31T1HN1",   // must match firestore.js exactly
 };
 
 // Reuse existing Firebase app if already initialized (shared with firestore.js)

@@ -115,8 +115,15 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'theme-nocturne');
     themeBtn.addEventListener('click', cycleTheme);
 
+    const USER_STORAGE_KEY = 'super-app-current-user';
+
     function storeUser(user) {
         currentUser = user;
+        if (user) {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+        } else {
+            localStorage.removeItem(USER_STORAGE_KEY);
+        }
         updateOperatorCard();
     }
 
@@ -161,9 +168,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return !currentUser || currentUser.mode === 'guest';
     }
 
-    currentUser = { name: 'Guest', email: '', mode: 'guest' };
+    // Load persisted user or default to guest
+    let savedUser = null;
+    try {
+        const stored = localStorage.getItem(USER_STORAGE_KEY);
+        if (stored) savedUser = JSON.parse(stored);
+    } catch (e) { console.warn('Failed to parse saved user', e); }
+
+    currentUser = savedUser || { name: 'Guest', email: '', mode: 'guest' };
     updateOperatorCard();
-    openAuthOverlay();
+    
+    // Only force auth overlay if there is NO saved user at all
+    if (!savedUser) {
+        openAuthOverlay();
+    }
+
+    // If they were logged in, optionally we could send an IPC to ensure backend is ready,
+    // but the backend auto-initializes via token.json and .wwebjs_auth
 
     guestEntryBtn?.addEventListener('click', () => {
         storeUser({ name: 'Guest', email: '', mode: 'guest' });
@@ -513,11 +534,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let unlinkWaBtn = document.getElementById('unlink-wa-btn');
             if (unlinkWaBtn) {
+                // Restore UI state from local storage immediately on load
+                if (localStorage.getItem('wa-connected') === 'true') {
+                    unlinkWaBtn.innerHTML = '&#10003; Connected — Reconnect WhatsApp';
+                }
+
                 unlinkWaBtn.onclick = async () => {
                     const btn = unlinkWaBtn;
-                    btn.textContent = 'Restarting Client...';
+                    const qrContainer = document.getElementById('wa-qr-container');
+
+                    // Show loading state
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="material-symbols-outlined text-[14px] animate-spin" style="display:inline-block">refresh</span> Restarting...`;
+
+                    const stopWA = document.getElementById('stop-wa-btn');
+                    if (stopWA) stopWA.style.display = 'block';
+
+                    // Show the QR area with a waiting message immediately
+                    if (qrContainer) {
+                        qrContainer.style.display = 'flex';
+                        const canvas = document.getElementById('wa-profile-qr');
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        }
+                        const waitMsg = qrContainer.querySelector('p');
+                        if (waitMsg) waitMsg.textContent = 'Starting... QR loading shortly';
+                    }
+
                     const res = await ipcRenderer.invoke('unlink-whatsapp');
-                    btn.textContent = 'Reconnect WhatsApp';
+
+                    // Keep loading state — QR will arrive via whatsapp-qr IPC event
+                    // and the global handler will draw it + update the container
+                    btn.innerHTML = `<span class="material-symbols-outlined text-[14px]">qr_code_scanner</span> Waiting for QR...`;
+
+                    // Auto-reset button after 60s if no QR comes
+                    setTimeout(() => {
+                        if (btn.disabled) {
+                            btn.disabled = false;
+                            btn.innerHTML = 'Reconnect WhatsApp';
+                        }
+                    }, 60000);
+
+                    if (!res.success) {
+                        btn.disabled = false;
+                        btn.innerHTML = 'Reconnect WhatsApp';
+                        if (qrContainer) qrContainer.style.display = 'none';
+                        alert('WhatsApp restart failed: ' + (res.message || 'Unknown error'));
+                    }
+                };
+            }
+
+            let stopWaBtn = document.getElementById('stop-wa-btn');
+            if (stopWaBtn) {
+                stopWaBtn.onclick = async () => {
+                    const btn = stopWaBtn;
+                    const qrContainer = document.getElementById('wa-qr-container');
+                    const unlinkBtn = document.getElementById('unlink-wa-btn');
+
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="material-symbols-outlined text-[14px] animate-spin" style="display:inline-block">refresh</span> Stopping...`;
+
+                    await ipcRenderer.invoke('stop-whatsapp');
+                    localStorage.removeItem('wa-connected');
+
+                    // Reset UI
+                    if (qrContainer) qrContainer.style.display = 'none';
+                    btn.style.display = 'none';
+                    btn.disabled = false;
+                    btn.innerHTML = 'Disconnect & Hide';
+
+                    if (unlinkBtn) {
+                        unlinkBtn.disabled = false;
+                        unlinkBtn.innerHTML = 'Reconnect WhatsApp';
+                    }
                 };
             }
         }
@@ -1573,14 +1663,51 @@ document.addEventListener('DOMContentLoaded', () => {
     ipcRenderer.on('whatsapp-qr', (_, qrString) => {
         const qrCanvas = document.getElementById('wa-profile-qr');
         const qrContainer = document.getElementById('wa-qr-container');
-        if (qrCanvas && qrContainer) {
-            if (qrString === 'connected') {
-                qrContainer.classList.add('hidden');
-                return;
+        const unlinkBtn = document.getElementById('unlink-wa-btn');
+        const stopBtn = document.getElementById('stop-wa-btn');
+
+        if (qrString === 'connected') {
+            localStorage.setItem('wa-connected', 'true');
+            // WhatsApp connected — hide QR, re-enable button
+            if (qrContainer) qrContainer.style.display = 'none';
+            if (stopBtn) stopBtn.style.display = 'none';
+            if (unlinkBtn) {
+                unlinkBtn.disabled = false;
+                unlinkBtn.innerHTML = '&#10003; Connected — Reconnect WhatsApp';
             }
-            qrContainer.classList.remove('hidden');
+            return;
+        }
+
+        if (typeof qrString === 'string' && qrString.startsWith('error:')) {
+            // Initialization failed
+             if (qrContainer) {
+                qrContainer.style.display = 'flex';
+                const waitMsg = qrContainer.querySelector('p');
+                if (waitMsg) waitMsg.textContent = 'Failed to load QR';
+            }
+            if (unlinkBtn) {
+                unlinkBtn.disabled = false;
+                unlinkBtn.innerHTML = `Error: ${qrString.replace('error:', '').substring(0, 30)}...`;
+            }
+            // keep stopBtn visible so they can hide it
+            if (stopBtn) stopBtn.style.display = 'block';
+            return;
+        }
+
+        // QR arrived — show container and draw the code
+        if (qrContainer) {
+            qrContainer.style.display = 'flex';
+            const waitMsg = qrContainer.querySelector('p');
+            if (waitMsg) waitMsg.textContent = 'Scan to Connect';
+        }
+        if (unlinkBtn) {
+            unlinkBtn.disabled = false;
+            unlinkBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">qr_code_scanner</span> Scan QR above`;
+        }
+        if (stopBtn) stopBtn.style.display = 'block';
+        if (qrCanvas) {
             QRCode.toCanvas(qrCanvas, qrString, { margin: 1, scale: 4 }, function(error) {
-                if (error) console.error(error);
+                if (error) console.error('[WhatsApp QR]', error);
             });
         }
     });
