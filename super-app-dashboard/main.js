@@ -76,12 +76,16 @@ ipcMain.handle('get-day-events', async (_, dateKey) => {
 // --- Email Monitor Initialization ---
 const { initEmailMonitor } = require('./email-monitor');
 
+// --- WhatsApp Monitor Initialization ---
+const { initWhatsAppMonitor } = require('./whatsapp-monitor');
+
 // --- App Lifecycle ---
 app.whenReady().then(() => {
     createWindow();
     
     // Start background email monitoring
     initEmailMonitor(mainWindow);
+    initWhatsAppMonitor(mainWindow);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
