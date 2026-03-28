@@ -33,7 +33,22 @@
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <!-- Action Hub -->
         <div class="flex flex-col gap-4">
-            <h3 class="text-lg font-bold text-dynamic">Unified Action Hub</h3>
+            <h3 class="text-lg font-bold text-dynamic">Unified Activity Stream</h3>
+            
+            <!-- VS Code Signal Feed (Dynamic) -->
+            <div id="vscode-activity-feed" class="flex flex-col gap-3">
+                <div class="glass-panel rounded-lg p-5 flex flex-col gap-3 animate-fade-in-up border-l-4 border-primary-dynamic">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-bold text-dynamic flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary-dynamic text-lg">terminal</span> 
+                            System Initialization
+                        </h4>
+                        <span class="text-[10px] text-dynamic-variant uppercase font-bold tracking-widest">Awaiting Bridge...</span>
+                    </div>
+                    <p id="vscode-last-event" class="text-sm text-dynamic-variant italic">Waiting for connection from ContextBridge extension...</p>
+                </div>
+            </div>
+
             <div class="glass-panel rounded-lg p-5 flex flex-col gap-4" id="notification-1">
                 <div class="flex justify-between items-center">
                     <h4 class="font-bold text-dynamic flex items-center gap-2"><span class="material-symbols-outlined text-[var(--secondary-col)]">forum</span> Slack: Team Sync</h4>
