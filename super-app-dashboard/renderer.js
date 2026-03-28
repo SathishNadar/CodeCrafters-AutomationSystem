@@ -160,6 +160,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+
+        if (viewName === 'history') {
+            const picker = document.getElementById('history-date-picker');
+            const loadBtn = document.getElementById('history-load-btn');
+            const status = document.getElementById('history-status');
+
+            // Default to today
+            if (picker) picker.value = new Date().toISOString().split('T')[0];
+
+            const loadHistory = async () => {
+                const dateKey = picker?.value;
+                if (!dateKey) return;
+
+                status.textContent = 'Loading...';
+                status.style.opacity = '1';
+
+                const summary = await ipcRenderer.invoke('get-day-summary', dateKey);
+
+                if (!summary) {
+                    document.getElementById('history-empty').classList.remove('hidden');
+                    document.getElementById('history-stats-grid').style.opacity = '0';
+                    document.getElementById('history-state-breakdown').style.opacity = '0';
+                    document.getElementById('history-language-card').style.opacity = '0';
+                    status.textContent = 'No data found.';
+                    setTimeout(() => status.style.opacity = '0', 3000);
+                    return;
+                }
+
+                document.getElementById('history-empty').classList.add('hidden');
+
+                // Populate stats
+                document.getElementById('h-focus').textContent = summary.focusMinutes ?? 0;
+                document.getElementById('h-saves').textContent = summary.saves ?? 0;
+                document.getElementById('h-commits').textContent = summary.commits ?? 0;
+                document.getElementById('h-load').textContent = (summary.cognitiveLoadAvg ?? 0) + '%';
+                document.getElementById('h-language').textContent = summary.primaryLanguage ?? '—';
+
+                // State breakdown bars
+                const barContainer = document.getElementById('h-state-bars');
+                const stateColors = {
+                    deep_focus: 'bg-blue-500', bug_hunt: 'bg-red-500',
+                    exploring: 'bg-yellow-500', idle: 'bg-gray-500', shipping: 'bg-green-500',
+                };
+                const totalMin = Object.values(summary.stateBreakdown || {}).reduce((a, b) => a + b, 0) || 1;
+                barContainer.innerHTML = Object.entries(summary.stateBreakdown || {}).map(([state, min]) => {
+                    const pct = Math.round((min / totalMin) * 100);
+                    return `
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-dynamic-variant w-24 capitalize">${state.replace('_', ' ')}</span>
+                            <div class="flex-1 h-2 rounded-full bg-[var(--surface-high)]">
+                                <div class="h-2 rounded-full ${stateColors[state] || 'bg-primary-dynamic'} transition-all duration-700" style="width: ${pct}%"></div>
+                            </div>
+                            <span class="text-xs text-dynamic-variant w-12 text-right">${min}m</span>
+                        </div>`;
+                }).join('');
+
+                document.getElementById('history-stats-grid').style.opacity = '1';
+                document.getElementById('history-state-breakdown').style.opacity = '1';
+                document.getElementById('history-language-card').style.opacity = '1';
+                status.textContent = 'Loaded from Firestore ✓';
+                setTimeout(() => status.style.opacity = '0', 3000);
+            };
+
+            if (loadBtn) loadBtn.addEventListener('click', loadHistory);
+            setTimeout(loadHistory, 300); // Auto-load today
+        }
     }
 
     // 4. VS Code Cognitive Analytics Integration
@@ -300,6 +366,212 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCognitiveUI(snap);
     });
 
+    // 5. Email Task Intelligence Notifications
+    let notificationsHistory = [];
+
+    const PRIORITY_STYLES = {
+        'Urgent': { bg: 'bg-red-500/10', border: 'border-red-500', text: 'text-red-500', icon: 'priority_high' },
+        'High':   { bg: 'bg-orange-500/10', border: 'border-orange-500', text: 'text-orange-500', icon: 'error' },
+        'Medium': { bg: 'bg-yellow-500/10', border: 'border-yellow-500', text: 'text-yellow-500', icon: 'warning' },
+        'Low':    { bg: 'bg-blue-500/10', border: 'border-blue-500', text: 'text-blue-500', icon: 'info' }
+    };
+
+    function renderEmailNotification(data, index) {
+        const { email, analysis, timestamp } = data;
+        const style = PRIORITY_STYLES[analysis.priority] || PRIORITY_STYLES['Low'];
+        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return `
+            <div class="glass-panel rounded-2xl p-5 border-l-4 ${style.border} flex flex-col hover:translate-x-1 transition-all">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full ${style.bg} ${style.text} flex items-center justify-center shrink-0 mt-1">
+                        <span class="material-symbols-outlined text-sm">${style.icon}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-bold uppercase tracking-widest ${style.text}">${analysis.priority}</span>
+                                <span class="text-[10px] text-dynamic-variant opacity-50">•</span>
+                                <span class="text-[10px] text-dynamic-variant uppercase tracking-widest font-bold">${analysis.sender || email.from.split('<')[0].trim()}</span>
+                            </div>
+                            <span class="text-[10px] text-dynamic-variant font-medium">${timeStr}</span>
+                        </div>
+                        <h4 class="font-bold text-dynamic text-sm truncate mb-1">${analysis.task}</h4>
+                        <p class="text-xs text-dynamic-variant leading-relaxed opacity-80 italic line-clamp-1">"${email.subject}"</p>
+                        ${analysis.deadline !== 'None' ? `<div class="mt-2 text-[10px] font-bold text-red-400 flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">calendar_today</span> Due: ${analysis.deadline}</div>` : ''}
+                        
+                        <div class="mt-3">
+                            <button data-index="${index}" class="reply-btn text-[11px] px-3 py-1.5 bg-[var(--surface-high)] border border-[var(--outline-var)] rounded-md text-dynamic-variant hover:text-white hover:bg-primary-dynamic hover:border-primary-dynamic transition-all font-bold flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">reply</span> Reply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    let currentReplyContext = null;
+
+    function openReplyModal(notificationData) {
+        const { email, analysis } = notificationData;
+        currentReplyContext = notificationData;
+
+        // The AI might just extract the human name (e.g. "John Doe") for analysis.sender.
+        // We MUST use the raw Gmail header (email.from) which contains the actual address.
+        const rawFromHeader = email.from || "";
+        const toEmailMatch = rawFromHeader.match(/<([^>]+)>/);
+        let toEmail = toEmailMatch ? toEmailMatch[1] : rawFromHeader;
+        
+        // Clean up any stray quotes or extra spaces
+        toEmail = toEmail.replace(/["']/g, '').trim();
+        
+        document.getElementById('reply-to-address').textContent = toEmail;
+        document.getElementById('reply-subject').value = email.subject.toLowerCase().startsWith('re:') ? email.subject : `Re: ${email.subject}`;
+        document.getElementById('reply-content').value = '';
+        
+        // Show original message
+        const replyBg = document.getElementById('reply-original-body');
+        const snippetText = email.fullContent ? email.fullContent.trim() : email.snippet;
+        replyBg.textContent = snippetText || "(No content available)";
+        
+        document.getElementById('reply-modal').classList.remove('hidden');
+    }
+
+    function closeReplyModal() {
+        document.getElementById('reply-modal').classList.add('hidden');
+        currentReplyContext = null;
+    }
+
+    function updateNotificationsView() {
+        const list = document.getElementById('email-notifications-list');
+        const emptyState = document.getElementById('notifications-empty');
+        if (!list) return;
+
+        if (notificationsHistory.length > 0) {
+            if (emptyState) emptyState.style.display = 'none';
+            const html = notificationsHistory.map((n, i) => renderEmailNotification(n, i)).join('');
+            
+            // Remove previous children except empty state
+            Array.from(list.children).forEach(c => {
+                 if (c.id !== 'notifications-empty') c.remove();
+            });
+            list.insertAdjacentHTML('beforeend', html);
+
+            // Attach event listeners to reply buttons
+            document.querySelectorAll('.reply-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = e.currentTarget.getAttribute('data-index');
+                    if (notificationsHistory[idx]) {
+                        openReplyModal(notificationsHistory[idx]);
+                    }
+                });
+            });
+
+        } else {
+            // Remove previous children except empty state
+            Array.from(list.children).forEach(c => {
+                 if (c.id !== 'notifications-empty') c.remove();
+            });
+            if (emptyState) emptyState.style.display = 'flex';
+        }
+    }
+
+    ipcRenderer.on('new-email-notification', (_, data) => {
+        notificationsHistory.unshift(data);
+        if (notificationsHistory.length > 50) notificationsHistory.pop();
+        updateNotificationsView();
+    });
+
+    // Modified attachViewListeners to include notifications view logic
+    const originalAttachViewListeners = attachViewListeners;
+    attachViewListeners = (viewName) => {
+        originalAttachViewListeners(viewName);
+        
+        if (viewName === 'notifications') {
+            updateNotificationsView();
+            
+            const clearBtn = document.getElementById('clear-notifications');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    notificationsHistory = [];
+                    updateNotificationsView();
+                });
+            }
+
+            const liveFeedBtn = document.getElementById('live-feed-btn');
+            if (liveFeedBtn) {
+                liveFeedBtn.addEventListener('click', async () => {
+                    const originalText = liveFeedBtn.innerHTML;
+                    liveFeedBtn.innerHTML = `<span class="material-symbols-outlined text-[14px] animate-spin">refresh</span> Syncing...`;
+                    liveFeedBtn.classList.add('opacity-70', 'pointer-events-none');
+                    try {
+                        await ipcRenderer.invoke('force-email-sync');
+                        // Wait a sec for the UI events to come back
+                        await new Promise(r => setTimeout(r, 1000));
+                    } catch (e) {
+                         console.error(e);
+                    } finally {
+                        liveFeedBtn.innerHTML = originalText;
+                        liveFeedBtn.classList.remove('opacity-70', 'pointer-events-none');
+                    }
+                });
+            }
+            
+            // Modal Listeners
+            document.getElementById('close-reply-modal')?.addEventListener('click', closeReplyModal);
+            document.getElementById('cancel-reply-btn')?.addEventListener('click', closeReplyModal);
+            
+            const sendBtn = document.getElementById('send-reply-btn');
+            if (sendBtn) {
+                // Must clone/replace to prevent duplicate listeners if re-entering the view
+                const newSendBtn = sendBtn.cloneNode(true);
+                sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+                
+                newSendBtn.addEventListener('click', async () => {
+                    if (!currentReplyContext) return;
+                    
+                    const to = document.getElementById('reply-to-address').textContent.trim();
+                    const subject = document.getElementById('reply-subject').value;
+                    const userReplyText = document.getElementById('reply-content').value;
+                    
+                    if (!userReplyText.trim()) return;
+                    
+                    newSendBtn.innerText = "Sending...";
+                    newSendBtn.classList.add('opacity-50', 'pointer-events-none');
+                    
+                    const originalEmailText = currentReplyContext.email.fullContent || currentReplyContext.email.snippet;
+                    // Append original email context
+                    const fullContent = `${userReplyText}\n\nOn ${new Date().toLocaleString()}, ${to} wrote:\n> ${originalEmailText.replace(/\n/g, '\n> ')}`;
+                    
+                    try {
+                        const res = await ipcRenderer.invoke('send-email-reply', {
+                            to,
+                            subject: subject.trim(),
+                            content: fullContent,
+                            threadId: currentReplyContext.email.threadId,
+                            messageId: currentReplyContext.email.messageId
+                        });
+                        
+                        if (res.success) {
+                            closeReplyModal();
+                            // Optional: Show a little toast
+                        } else {
+                            alert("Failed to send: " + res.error);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert("Error sending reply.");
+                    } finally {
+                        newSendBtn.innerHTML = `<span class="material-symbols-outlined text-[14px]">send</span> Send Reference Task`;
+                        newSendBtn.classList.remove('opacity-50', 'pointer-events-none');
+                    }
+                });
+            }
+        }
+    };
+
     // Default Initialization
     loadView('dashboard');
 });
+

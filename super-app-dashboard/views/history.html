@@ -1,0 +1,66 @@
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex flex-col gap-2 mb-4">
+        <h2 class="text-2xl font-bold tracking-tight text-dynamic">Session History</h2>
+        <p class="text-sm text-dynamic-variant">Browse past coding sessions stored in Firebase Firestore.</p>
+    </header>
+
+    <!-- Date Picker -->
+    <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 p-3 bg-[var(--surface-low)] rounded-xl border border-[var(--outline-var)]">
+            <span class="material-symbols-outlined text-primary-dynamic">calendar_today</span>
+            <input type="date" id="history-date-picker"
+                class="bg-transparent text-dynamic text-sm outline-none border-none cursor-pointer"
+                value="">
+        </div>
+        <button id="history-load-btn" class="px-5 py-2.5 rounded-full bg-primary-dynamic text-white text-sm font-semibold hover:opacity-80 active:scale-95 transition-all flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">download</span> Load Session
+        </button>
+        <span id="history-status" class="text-xs text-dynamic-variant opacity-0 transition-opacity"></span>
+    </div>
+
+    <!-- Stats Grid -->
+    <div id="history-stats-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 opacity-0 transition-opacity duration-500">
+        <div class="glass-panel rounded-xl p-5 flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-primary-dynamic text-2xl">timer</span>
+            <span id="h-focus" class="text-3xl font-bold text-dynamic">—</span>
+            <span class="text-xs text-dynamic-variant">Focus Minutes</span>
+        </div>
+        <div class="glass-panel rounded-xl p-5 flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-secondary-dynamic text-2xl">save</span>
+            <span id="h-saves" class="text-3xl font-bold text-dynamic">—</span>
+            <span class="text-xs text-dynamic-variant">Files Saved</span>
+        </div>
+        <div class="glass-panel rounded-xl p-5 flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-green-400 text-2xl">commit</span>
+            <span id="h-commits" class="text-3xl font-bold text-dynamic">—</span>
+            <span class="text-xs text-dynamic-variant">Git Commits</span>
+        </div>
+        <div class="glass-panel rounded-xl p-5 flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-yellow-400 text-2xl">psychology</span>
+            <span id="h-load" class="text-3xl font-bold text-dynamic">—</span>
+            <span class="text-xs text-dynamic-variant">Avg Cognitive Load</span>
+        </div>
+    </div>
+
+    <!-- State Breakdown -->
+    <div id="history-state-breakdown" class="glass-panel rounded-xl p-6 opacity-0 transition-opacity duration-500">
+        <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest mb-4">Time in Each State</h3>
+        <div id="h-state-bars" class="flex flex-col gap-3"></div>
+    </div>
+
+    <!-- Top Language -->
+    <div id="history-language-card" class="flex items-center gap-4 glass-panel rounded-xl p-5 opacity-0 transition-opacity duration-500">
+        <span class="material-symbols-outlined text-3xl text-primary-dynamic">code</span>
+        <div>
+            <p class="text-xs text-dynamic-variant uppercase tracking-widest font-bold">Primary Language This Day</p>
+            <p id="h-language" class="text-2xl font-bold text-dynamic mt-1">—</p>
+        </div>
+    </div>
+
+    <!-- No data placeholder -->
+    <div id="history-empty" class="glass-panel rounded-xl p-10 flex flex-col items-center gap-4 text-center hidden">
+        <span class="material-symbols-outlined text-4xl text-dynamic-variant">calendar_month</span>
+        <p class="text-dynamic-variant text-sm">No session data found for this date.<br>Make sure ContextBridge was running and Firestore is connected.</p>
+    </div>
+</div>

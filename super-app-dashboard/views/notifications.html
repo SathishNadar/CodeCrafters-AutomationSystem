@@ -1,51 +1,87 @@
 <!-- NOTIFICATIONS SECTION -->
-<div id="section-notifications" class="view-section">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-dynamic">Intercepted Activity History</h2>
+<div id="section-notifications" class="view-section relative h-full flex flex-col">
+    <div class="flex justify-between items-center mb-6 shrink-0">
+        <div>
+            <h2 class="text-2xl font-bold text-dynamic tracking-tight">Activity Stream</h2>
+            <p class="text-xs text-dynamic-variant mt-1.5 opacity-70 uppercase tracking-widest font-semibold">Live Email Task Intelligence</p>
+        </div>
         <div class="flex gap-2">
-            <button class="text-xs px-3 py-1 bg-primary-dynamic text-white rounded-md">Today</button>
-            <button class="text-xs px-3 py-1 bg-[var(--surface-low)] text-dynamic rounded-md border border-dynamic hover:bg-[var(--surface-high)]">This Week</button>
+            <button id="live-feed-btn" class="text-[11px] font-bold px-3 py-1.5 bg-primary-dynamic text-white rounded-lg shadow-lg flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">sync</span>
+                Live Feed
+            </button>
+            <button id="clear-notifications" class="text-[11px] font-bold px-3 py-1.5 bg-[var(--surface-high)] text-dynamic-variant rounded-lg border border-[var(--outline-var)] hover:bg-red-500/10 hover:text-red-500 transition-all">Clear All</button>
         </div>
     </div>
     
-    <div class="glass-panel rounded-xl overflow-hidden">
-        <div class="p-6 border-b border-dynamic flex items-start gap-4 hover:bg-[var(--surface-low)] transition-colors cursor-pointer">
-            <div class="w-10 h-10 rounded-full bg-[#E1306C]/10 text-[#E1306C] flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-sm">photo_camera</span>
+    <!-- Dynamic List Container -->
+    <div id="email-notifications-list" class="space-y-4 overflow-y-auto flex-1 pb-4 pr-1">
+        <!-- New notifications will be prepended here -->
+        <div id="notifications-empty" class="glass-panel rounded-2xl p-12 flex flex-col items-center justify-center text-center opacity-60">
+            <div class="w-16 h-16 rounded-full bg-[var(--surface-high)] flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-3xl text-dynamic-variant">mail_lock</span>
             </div>
-            <div class="flex-1 mt-1">
-                <div class="flex justify-between items-center">
-                    <h4 class="font-bold text-dynamic">Instagram</h4>
-                    <span class="text-xs text-dynamic-variant">10:42 AM</span>
-                </div>
-                <p class="text-sm text-dynamic-variant">"Mike liked your post" - Blocked due to Deep Work Mode.</p>
-            </div>
+            <h3 class="text-lg font-bold text-dynamic">No activity detected yet</h3>
+            <p class="text-xs text-dynamic-variant mt-2 max-w-[240px]">The AI is monitor your inbox for tasks. New alerts will appear here in real-time.</p>
         </div>
+    </div>
 
-        <div class="p-6 border-b border-dynamic flex items-start gap-4 hover:bg-[var(--surface-low)] transition-colors cursor-pointer">
-            <div class="w-10 h-10 rounded-full bg-[#EA4335]/10 text-[#EA4335] flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-sm">mail</span>
+    <!-- Reply Modal Overlay (Hidden by default) -->
+    <div id="reply-modal" class="absolute inset-0 z-50 bg-[var(--surface-low)]/80 backdrop-blur-md hidden flex items-center justify-center">
+        <div class="bg-[var(--surface-high)] border border-[var(--outline-var)] rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90%] m-4">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center px-4 py-3 border-b border-[var(--outline-var)] shrink-0">
+                <h3 class="font-bold text-dynamic text-sm flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">reply</span>
+                    Compose Reply
+                </h3>
+                <button id="close-reply-modal" class="w-8 h-8 rounded-full hover:bg-[var(--surface-low)] flex items-center justify-center text-dynamic-variant transition-colors">
+                    <span class="material-symbols-outlined text-sm">close</span>
+                </button>
             </div>
-            <div class="flex-1 mt-1">
-                <div class="flex justify-between items-center">
-                    <h4 class="font-bold text-dynamic">Marketing List</h4>
-                    <span class="text-xs text-dynamic-variant">11:15 AM</span>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-4 flex-1 overflow-y-auto flex flex-col gap-4">
+                
+                <!-- Metadata Info -->
+                <div class="text-xs flex flex-col gap-1">
+                    <div class="flex gap-2">
+                        <span class="text-dynamic-variant font-medium w-12 shrink-0">To:</span>
+                        <span id="reply-to-address" class="text-dynamic truncate font-mono">user@example.com</span>
+                    </div>
                 </div>
-                <p class="text-sm text-dynamic-variant">Snoozed Promotional Email until Evening Digest.</p>
-            </div>
-        </div>
-        
-        <div class="p-6 flex items-start gap-4 hover:bg-[var(--surface-low)] transition-colors cursor-pointer">
-            <div class="w-10 h-10 rounded-full bg-secondary-dynamic/10 text-secondary-dynamic flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-sm">summarize</span>
-            </div>
-            <div class="flex-1 mt-1">
-                <div class="flex justify-between items-center">
-                    <h4 class="font-bold text-dynamic">Digest Delivery</h4>
-                    <span class="text-xs text-dynamic-variant">12:00 PM</span>
+
+                <!-- Editable Subject -->
+                <div>
+                     <input type="text" id="reply-subject" class="w-full bg-[var(--surface-low)] border border-[var(--outline-var)] rounded-lg px-3 py-2 text-sm text-dynamic focus:outline-none focus:border-primary-dynamic transition-colors" placeholder="Subject">
                 </div>
-                <p class="text-sm text-dynamic-variant">Delivered 4 low-priority emails and 2 messages in a concise summary format.</p>
+
+                <!-- Text Area for New Content -->
+                <div class="flex flex-col flex-1">
+                    <textarea id="reply-content" class="w-full flex-1 min-h-[150px] bg-[var(--surface-low)] border border-[var(--outline-var)] rounded-lg px-3 py-3 text-sm text-dynamic resize-none focus:outline-none focus:border-primary-dynamic transition-colors" placeholder="Write your reply here..."></textarea>
+                </div>
+
+                <!-- Original Email Content (Read Only) -->
+                <div class="mt-2 text-xs">
+                    <div class="font-medium text-dynamic-variant mb-2">Original Message:</div>
+                    <div id="reply-original-body" class="p-3 bg-[var(--surface-low)] rounded-lg border border-[var(--outline-var)] text-dynamic opacity-70 max-h-[200px] overflow-y-auto whitespace-pre-wrap font-mono text-[10px]">
+                        ...
+                    </div>
+                </div>
+
             </div>
+
+            <!-- Modal Footer -->
+            <div class="px-4 py-3 border-t border-[var(--outline-var)] flex justify-end gap-2 shrink-0 bg-[var(--surface-low)] rounded-b-2xl">
+                <button id="cancel-reply-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold text-dynamic-variant hover:text-dynamic transition-colors">Cancel</button>
+                <button id="send-reply-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-primary-dynamic text-white shadow-lg hover:shadow-primary flex items-center gap-1 transition-all">
+                    <span class="material-symbols-outlined text-[14px]">send</span>
+                    Send Reference Task
+                </button>
+            </div>
+            
         </div>
     </div>
 </div>
+
