@@ -5,6 +5,7 @@
   let startedAt = Date.now();
   let totalInteractions = 0;
   let lastMouseAt = 0;
+  let maxScrollDepth = 0;        // 0–100 % of page scrolled
   const counters = {
     mousemove: 0,
     scroll: 0,
@@ -28,6 +29,12 @@
 
   function onScroll() {
     bump('scroll');
+    // Track how far down the page the user has scrolled
+    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+    if (scrollable > 0) {
+      const pct = Math.round((window.scrollY / scrollable) * 100);
+      if (pct > maxScrollDepth) maxScrollDepth = pct;
+    }
   }
 
   function onKeydown() {
@@ -56,6 +63,7 @@
     counters.scroll = 0;
     counters.keydown = 0;
     counters.click = 0;
+    maxScrollDepth = 0;   // reset per window
     startedAt = Date.now();
   }
 
@@ -70,6 +78,7 @@
         host: window.location.hostname || null,
         interactionCount: totalInteractions,
         breakdown: { ...counters },
+        scrollDepth: maxScrollDepth,   // NEW: max % of page scrolled this window
         windowMs,
         visible: !document.hidden,
         urlHints: getSafeHints(),

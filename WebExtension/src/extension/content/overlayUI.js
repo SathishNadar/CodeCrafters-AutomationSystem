@@ -5,7 +5,6 @@
   let root = null;
   let stack = null;
   let digest = null;
-  let debugBadge = null;
 
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) return;
@@ -115,34 +114,6 @@
         cursor: pointer;
       }
 
-      #${ROOT_ID} .cn-debug {
-        pointer-events: none;
-        color: #e2e8f0;
-        background: rgba(2, 6, 23, 0.9);
-        border: 1px solid rgba(125, 211, 252, 0.45);
-        border-radius: 12px;
-        box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
-        padding: 8px 10px;
-        font-size: 11px;
-        line-height: 1.35;
-      }
-
-      #${ROOT_ID} .cn-debug.cn-state-active_focus {
-        border-color: rgba(52, 211, 153, 0.7);
-      }
-
-      #${ROOT_ID} .cn-debug.cn-state-passive_focus {
-        border-color: rgba(96, 165, 250, 0.7);
-      }
-
-      #${ROOT_ID} .cn-debug.cn-state-distracted {
-        border-color: rgba(251, 113, 133, 0.7);
-      }
-
-      #${ROOT_ID} .cn-debug.cn-state-idle {
-        border-color: rgba(250, 204, 21, 0.7);
-      }
-
       @keyframes cn-slide-in {
         from {
           transform: translateY(-12px) scale(0.98);
@@ -167,34 +138,12 @@
 
     stack = document.createElement('div');
     digest = document.createElement('div');
-    debugBadge = document.createElement('section');
-    debugBadge.className = 'cn-debug';
-    debugBadge.textContent = 'AIS state: waiting for pipeline...';
 
-    root.append(debugBadge, stack, digest);
+    root.append(stack, digest);
     document.documentElement.appendChild(root);
     return root;
   }
 
-  function showDebug(message) {
-    ensureRoot();
-
-    const contextState = message?.contextState ?? {};
-    const vector = message?.vector ?? {};
-
-    const state = contextState.state ?? 'transitioning';
-    const domain = contextState.currentDomain ?? vector.currentDomain ?? 'n/a';
-    const density = Number(
-      vector.interactionDensity ?? contextState.interactionDensity ?? 0
-    );
-    const switches = Number(vector.tabSwitchRate1m ?? 0);
-    const queue = Number.isFinite(message?.queueDepth) ? message.queueDepth : 0;
-
-    const densityLabel = Number.isFinite(density) ? density.toFixed(1) : '0.0';
-    debugBadge.className = `cn-debug cn-state-${String(state).replace(/[^a-z0-9_]/gi, '_')}`;
-    debugBadge.textContent =
-      `AIS ${state} | density ${densityLabel}/min | switch ${switches}/m | queue ${queue} | ${domain}`;
-  }
 
   function compactNotificationLine(notification) {
     const app = normalizeToken(notification.source ?? 'App');
@@ -348,10 +297,6 @@
   }
 
   chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type === 'PIPELINE_UPDATE' || message?.source === 'pipeline') {
-      showDebug(message);
-    }
-
     if (message?.type === 'OVERLAY_NOTIFICATION') {
       showNotification(message);
     }

@@ -1,7 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Context Notif Manager",
-  "version": "1.0.0",
+  "name": "Signal Forge",
+  "version": "1.1.0",
+  "action": {
+    "default_title": "Signal Forge – Focus Intelligence",
+    "default_popup": "src/popup/popup.html"
+  },
   "background": {
     "service_worker": "src/extension/background.js",
     "type": "module"
