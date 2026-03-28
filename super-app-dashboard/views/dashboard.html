@@ -1,122 +1,207 @@
-<!-- DASHBOARD SECTION -->
-<div id="section-dashboard" class="view-section space-y-8">
-
-    <!-- State Hero Banner -->
-    <div id="state-hero" class="glass-panel rounded-xl p-6 relative overflow-hidden border-l-4 border-blue-500 transition-all duration-700">
-        <div class="relative z-10 flex flex-col md:flex-row justify-between gap-6 items-center">
-            <div class="flex items-center gap-5">
-                <div id="state-icon-wrap" class="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                    <span id="state-icon" class="material-symbols-outlined text-blue-400 text-3xl">pause_circle</span>
+<div id="section-dashboard" class="view-section dashboard-shell">
+    <section id="state-hero" class="hero-surface border-l-4 border-blue-500">
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <div class="hero-kicker">
+                    <span class="hero-kicker-dot"></span>
+                    <span>Live Cognitive State</span>
                 </div>
-                <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-                        <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Live Cognitive State</span>
+
+                <div class="flex items-start gap-4">
+                    <div id="state-icon-wrap" class="hero-icon-wrap bg-blue-500/10">
+                        <span id="state-icon" class="material-symbols-outlined text-blue-400 text-3xl">pause_circle</span>
                     </div>
-                    <h2 id="state-label" class="text-2xl font-bold tracking-tight text-dynamic">Awaiting Signal...</h2>
-                    <p id="state-desc" class="text-dynamic-variant text-sm mt-1">Start the ContextBridge extension in VS Code</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-6 shrink-0">
-                <div class="text-center">
-                    <div id="state-duration" class="text-3xl font-bold text-dynamic">—</div>
-                    <div class="text-xs text-dynamic-variant mt-1">Min in State</div>
-                </div>
-                <div class="text-center">
-                    <div id="session-minutes" class="text-3xl font-bold text-dynamic">0</div>
-                    <div class="text-xs text-dynamic-variant mt-1">Session Min</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Grid -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-        <!-- LEFT: Activity Feed + Toggles (col-span-1) -->
-        <div class="flex flex-col gap-4">
-            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Live Activity Feed</h3>
-            <div id="vscode-activity-feed" class="flex flex-col gap-3">
-                <div class="glass-panel rounded-lg p-4 flex flex-col gap-2 border-l-4 border-primary-dynamic">
-                    <p class="text-sm text-dynamic-variant italic">Waiting for ContextBridge...</p>
-                </div>
-            </div>
-            <!-- Focus Toggles -->
-            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest mt-2">Focus Controls</h3>
-            <label class="toggle-label flex items-center justify-between p-3 bg-[var(--surface-lowest)] rounded-xl cursor-pointer">
-                <span class="text-sm font-medium text-dynamic">Auto-Delay Distractions</span>
-                <div class="toggle-track w-10 h-5 bg-primary-dynamic rounded-full flex items-center px-1 transition-colors">
-                    <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
-                </div>
-            </label>
-            <label class="toggle-label flex items-center justify-between p-3 bg-[var(--surface-lowest)] rounded-xl cursor-pointer">
-                <span class="text-sm font-medium text-dynamic">Intercept Social Media</span>
-                <div class="toggle-track w-10 h-5 bg-secondary-dynamic rounded-full flex items-center px-1 transition-colors">
-                    <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
-                </div>
-            </label>
-        </div>
-
-        <!-- CENTER: Cognitive Load + Session Stats (col-span-1) -->
-        <div class="flex flex-col gap-4">
-            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Cognitive Load</h3>
-            <!-- Load Gauge -->
-            <div class="glass-panel rounded-xl p-5 flex flex-col items-center gap-4">
-                <div class="relative w-36 h-36">
-                    <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
-                        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-high)" stroke-width="10"/>
-                        <circle id="load-arc" cx="50" cy="50" r="42" fill="none" stroke="#3b82f6" stroke-width="10"
-                            stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"
-                            class="transition-all duration-700"/>
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span id="load-score" class="text-3xl font-bold text-dynamic">0</span>
-                        <span class="text-[10px] text-dynamic-variant">/ 100</span>
+                    <div class="space-y-2">
+                        <h2 id="state-label" class="hero-title text-dynamic">Awaiting Signal...</h2>
+                        <p id="state-desc" class="max-w-2xl text-sm text-dynamic-variant leading-relaxed">
+                            Start the ContextBridge extension in VS Code to begin mapping active focus patterns.
+                        </p>
                     </div>
                 </div>
-                <div id="load-label" class="text-sm font-semibold text-green-400">Low Load — Comfortable</div>
-                <p id="load-sub" class="text-xs text-dynamic-variant text-center">Errors × 3.5 + Switch Velocity × 2.5</p>
             </div>
 
-            <!-- Session Stats -->
-            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Session Stats</h3>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
-                    <span class="material-symbols-outlined text-primary-dynamic">timer</span>
-                    <span id="stat-focus" class="text-2xl font-bold text-dynamic">0</span>
-                    <span class="text-[10px] text-dynamic-variant">Focus Min</span>
+            <div class="hero-metrics">
+                <div class="hero-stat-card">
+                    <span class="hero-stat-label">Min in State</span>
+                    <span id="state-duration" class="hero-stat-value">--</span>
                 </div>
-                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
-                    <span class="material-symbols-outlined text-secondary-dynamic">save</span>
-                    <span id="stat-saves" class="text-2xl font-bold text-dynamic">0</span>
-                    <span class="text-[10px] text-dynamic-variant">Files Saved</span>
+                <div class="hero-stat-card">
+                    <span class="hero-stat-label">Session Min</span>
+                    <span id="session-minutes" class="hero-stat-value">0</span>
                 </div>
-                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
-                    <span class="material-symbols-outlined text-green-400">commit</span>
-                    <span id="stat-commits" class="text-2xl font-bold text-dynamic">0</span>
-                    <span class="text-[10px] text-dynamic-variant">Commits</span>
-                </div>
-                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
-                    <span class="material-symbols-outlined text-yellow-400">code</span>
-                    <span id="stat-lang" class="text-lg font-bold text-dynamic truncate max-w-[80px]">—</span>
-                    <span class="text-[10px] text-dynamic-variant">Top Language</span>
+                <div class="hero-stat-card hero-stat-card-accent">
+                    <span class="hero-stat-label">Guidance</span>
+                    <span class="hero-stat-note">Adaptive interventions stay quiet until needed.</span>
                 </div>
             </div>
         </div>
+    </section>
 
-        <!-- RIGHT: Smart Recommendations (col-span-1) -->
-        <div class="flex flex-col gap-4">
-            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Smart Recommendations</h3>
-            <div id="recommendations-feed" class="flex flex-col gap-3">
-                <div class="glass-panel rounded-lg p-5 flex flex-col gap-2 opacity-60">
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-dynamic-variant">lightbulb</span>
-                        <span class="text-sm font-medium text-dynamic">Insights appear here</span>
+    <section class="command-strip">
+        <article class="command-card">
+            <div class="command-icon bg-[rgba(31,111,235,0.14)] text-[#78a9ff]">
+                <span class="material-symbols-outlined">neurology</span>
+            </div>
+            <div>
+                <p class="command-label">Attention Mode</p>
+                <p class="command-value">Deep work protection is enabled</p>
+            </div>
+        </article>
+        <article class="command-card">
+            <div class="command-icon bg-[rgba(13,148,136,0.14)] text-[#3cc6b7]">
+                <span class="material-symbols-outlined">bolt</span>
+            </div>
+            <div>
+                <p class="command-label">Response Tempo</p>
+                <p class="command-value">Signals refresh in real time</p>
+            </div>
+        </article>
+        <article class="command-card">
+            <div class="command-icon bg-[rgba(245,158,11,0.14)] text-[#f7c561]">
+                <span class="material-symbols-outlined">shield</span>
+            </div>
+            <div>
+                <p class="command-label">Interruption Guard</p>
+                <p class="command-value">Rules and inbox triage stay in sync</p>
+            </div>
+        </article>
+    </section>
+
+    <section class="dashboard-grid">
+        <div class="dashboard-column-main">
+            <article class="dashboard-panel dashboard-panel-strong">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Live Activity Feed</p>
+                        <h3 class="panel-title">Current coding motion</h3>
                     </div>
-                    <p class="text-xs text-dynamic-variant">Recommendations will surface as your activity patterns are analyzed.</p>
+                    <span class="panel-pill">Streaming</span>
                 </div>
-            </div>
+
+                <div id="vscode-activity-feed" class="flex flex-col gap-3">
+                    <div class="glass-panel rounded-2xl p-4 flex flex-col gap-2 border-l-4 border-primary-dynamic">
+                        <p class="text-sm text-dynamic-variant italic">Waiting for ContextBridge...</p>
+                    </div>
+                </div>
+            </article>
+
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Smart Recommendations</p>
+                        <h3 class="panel-title">Suggested next moves</h3>
+                    </div>
+                    <span class="material-symbols-outlined text-dynamic-variant text-[18px]">tips_and_updates</span>
+                </div>
+
+                <div id="recommendations-feed" class="grid gap-3">
+                    <div class="glass-panel rounded-2xl p-5 flex flex-col gap-2 opacity-70">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-dynamic-variant">lightbulb</span>
+                            <span class="text-sm font-semibold text-dynamic">Insights appear here</span>
+                        </div>
+                        <p class="text-xs text-dynamic-variant leading-relaxed">
+                            Recommendations will surface as activity patterns become clearer.
+                        </p>
+                    </div>
+                </div>
+            </article>
         </div>
 
-    </div>
+        <div class="dashboard-column-side">
+            <article class="dashboard-panel dashboard-panel-highlight">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Cognitive Load</p>
+                        <h3 class="panel-title">Pressure index</h3>
+                    </div>
+                </div>
+
+                <div class="load-panel-body">
+                    <div class="relative w-40 h-40 mx-auto">
+                        <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-high)" stroke-width="10"/>
+                            <circle id="load-arc" cx="50" cy="50" r="42" fill="none" stroke="#3b82f6" stroke-width="10"
+                                stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"
+                                class="transition-all duration-700"/>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="load-score" class="text-4xl font-extrabold text-dynamic">0</span>
+                            <span class="text-[11px] tracking-[0.22em] uppercase text-dynamic-variant">Load Score</span>
+                        </div>
+                    </div>
+
+                    <div class="text-center space-y-2">
+                        <div id="load-label" class="text-sm font-semibold text-green-400">Low Load - Comfortable</div>
+                        <p id="load-sub" class="text-xs text-dynamic-variant leading-relaxed">
+                            Errors x 3.5 + switch velocity x 2.5
+                        </p>
+                    </div>
+                </div>
+            </article>
+
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Session Stats</p>
+                        <h3 class="panel-title">What changed this run</h3>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="metric-card">
+                        <span class="material-symbols-outlined metric-icon text-primary-dynamic">timer</span>
+                        <span id="stat-focus" class="metric-value">0</span>
+                        <span class="metric-label">Focus Min</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="material-symbols-outlined metric-icon text-secondary-dynamic">save</span>
+                        <span id="stat-saves" class="metric-value">0</span>
+                        <span class="metric-label">Files Saved</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="material-symbols-outlined metric-icon text-green-400">commit</span>
+                        <span id="stat-commits" class="metric-value">0</span>
+                        <span class="metric-label">Commits</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="material-symbols-outlined metric-icon text-yellow-400">code_blocks</span>
+                        <span id="stat-lang" class="metric-value metric-value-text">--</span>
+                        <span class="metric-label">Top Language</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Focus Controls</p>
+                        <h3 class="panel-title">Intervention settings</h3>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="toggle-label control-card">
+                        <div>
+                            <p class="control-title">Auto-delay distractions</p>
+                            <p class="control-copy">Hold non-urgent interruptions while focus is stable.</p>
+                        </div>
+                        <div class="toggle-track w-10 h-5 bg-primary-dynamic rounded-full flex items-center px-1 transition-colors shrink-0">
+                            <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
+                        </div>
+                    </label>
+
+                    <label class="toggle-label control-card">
+                        <div>
+                            <p class="control-title">Intercept social media</p>
+                            <p class="control-copy">Reroute high-noise channels during active work blocks.</p>
+                        </div>
+                        <div class="toggle-track w-10 h-5 bg-secondary-dynamic rounded-full flex items-center px-1 transition-colors shrink-0">
+                            <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
+                        </div>
+                    </label>
+                </div>
+            </article>
+        </div>
+    </section>
 </div>

@@ -1,47 +1,73 @@
-<!-- SETTINGS SECTION -->
-<div id="section-settings" class="view-section">
-    <h2 class="text-2xl font-bold text-dynamic mb-6">App Settings</h2>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="glass-panel p-6 rounded-xl flex flex-col gap-6">
+<div id="section-settings" class="view-section space-y-6">
+    <div>
+        <p class="panel-kicker">System Preferences</p>
+        <h2 class="panel-title text-dynamic">App Settings</h2>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-6">
+        <div class="dashboard-panel space-y-6">
             <div>
                 <h3 class="font-bold text-lg text-dynamic mb-1">System Behavior</h3>
-                <p class="text-xs text-dynamic-variant mb-4">Control how the Context Engine interacts with your OS.</p>
+                <p class="text-sm text-dynamic-variant">Control how the Context Engine reacts while you work.</p>
             </div>
-            
-            <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-dynamic">Start on Boot</span>
-                <input type="checkbox" checked class="rounded border-dynamic bg-transparent text-primary-dynamic focus:ring-primary-dynamic w-5 h-5 cursor-pointer">
-            </div>
-            
-            <hr class="border-dynamic">
-            
-            <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-dynamic">AI Aggression Level</span>
-                <select class="bg-[var(--surface-lowest)] border border-dynamic text-dynamic rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-dynamic cursor-pointer">
-                    <option>Moderate (Recommended)</option>
-                    <option>Strict (Blocks EVERYTHING)</option>
-                    <option>Passive (Monitoring Only)</option>
-                </select>
-            </div>
-            
-            <hr class="border-dynamic">
 
-            <div class="flex justify-between items-center">
-                <div>
-                    <span class="text-sm font-medium text-dynamic block">Data Syncing</span>
-                    <span class="text-xs text-dynamic-variant">Sync context across devices securely.</span>
+            <div class="settings-stack">
+                <div class="settings-row">
+                    <span class="text-sm font-medium text-dynamic">Start on Boot</span>
+                    <input type="checkbox" checked class="rounded border-dynamic bg-transparent text-primary-dynamic focus:ring-primary-dynamic w-5 h-5 cursor-pointer">
                 </div>
-                <input type="checkbox" class="rounded border-dynamic bg-transparent text-primary-dynamic focus:ring-primary-dynamic w-5 h-5 cursor-pointer">
+
+                <div class="settings-row">
+                    <span class="text-sm font-medium text-dynamic">AI Aggression Level</span>
+                    <select class="bg-[var(--surface-lowest)] border border-dynamic text-dynamic rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-dynamic cursor-pointer">
+                        <option>Moderate (Recommended)</option>
+                        <option>Strict (Blocks EVERYTHING)</option>
+                        <option>Passive (Monitoring Only)</option>
+                    </select>
+                </div>
+
+                <div class="settings-row">
+                    <div>
+                        <span class="text-sm font-medium text-dynamic block">Data Syncing</span>
+                        <span class="text-xs text-dynamic-variant">Sync context across devices securely.</span>
+                    </div>
+                    <input type="checkbox" class="rounded border-dynamic bg-transparent text-primary-dynamic focus:ring-primary-dynamic w-5 h-5 cursor-pointer">
+                </div>
             </div>
         </div>
 
-        <div class="glass-panel p-6 rounded-xl flex flex-col gap-6 justify-center items-center text-center">
-            <div class="w-16 h-16 bg-primary-dynamic/10 text-primary-dynamic rounded-full flex items-center justify-center mb-2">
-                <span class="material-symbols-outlined text-3xl">api</span>
+        <div class="dashboard-panel space-y-5">
+            <div>
+                <p class="panel-kicker">Themes</p>
+                <h3 class="font-bold text-lg text-dynamic">Choose your workspace mood</h3>
+                <p class="text-sm text-dynamic-variant mt-1">Two polished themes are available for focused work and daytime review.</p>
             </div>
-            <h3 class="font-bold text-xl text-dynamic">Integration Status</h3>
-            <p class="text-sm text-dynamic-variant px-4">Super App MVP is currently connected to 4 local application monitors and 2 remote webhooks.</p>
-            <button class="px-6 py-2 bg-[var(--surface-high)] rounded-full text-dynamic border border-dynamic shadow-sm hover:shadow-md transition-shadow">Manage Integrations</button>
+
+            <div class="theme-options">
+                <button class="theme-card" data-theme-choice="theme-nocturne">
+                    <div class="theme-preview theme-preview-nocturne"></div>
+                    <div>
+                        <div class="font-semibold text-dynamic">Nocturne</div>
+                        <p class="text-xs text-dynamic-variant mt-1">Cool blue command center for long coding sessions.</p>
+                    </div>
+                </button>
+
+                <button class="theme-card" data-theme-choice="theme-solstice">
+                    <div class="theme-preview theme-preview-solstice"></div>
+                    <div>
+                        <div class="font-semibold text-dynamic">Solstice</div>
+                        <p class="text-xs text-dynamic-variant mt-1">Warm editorial palette for planning, review, and demos.</p>
+                    </div>
+                </button>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-5 text-center">
+                <div class="w-14 h-14 bg-primary-dynamic/10 text-primary-dynamic rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <span class="material-symbols-outlined text-3xl">palette</span>
+                </div>
+                <h4 class="font-bold text-dynamic">Theme switching is live</h4>
+                <p class="text-sm text-dynamic-variant mt-2">Changes apply instantly across the dashboard and are remembered for the next session.</p>
+            </div>
         </div>
     </div>
 </div>

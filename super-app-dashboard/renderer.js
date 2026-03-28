@@ -1,21 +1,159 @@
 const fs = require('fs');
 const path = require('path');
+const { ipcRenderer } = require('electron');
+const analytics = require('./analytics');
 
 document.addEventListener('DOMContentLoaded', () => {
+    const THEME_STORAGE_KEY = 'super-app-theme';
+    const THEMES = {
+        'theme-nocturne': { label: 'Theme: Nocturne', icon: 'dark_mode' },
+        'theme-solstice': { label: 'Theme: Solstice', icon: 'light_mode' },
+    };
+
+    let latestVsCodePayload = null;
+    let latestCognitiveSnapshot = analytics.getSnapshot();
+    let vscodeEventHistory = [];
+    let currentUser = null;
+    let pendingProtectedTarget = null;
+
+    function formatEventTitle(value) {
+        return (value || 'unknown_event')
+            .split('_')
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+    }
+
+    function formatTimestamp(value) {
+        if (!value) return '--';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '--';
+        return date.toLocaleString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            day: '2-digit',
+            month: 'short',
+        });
+    }
+
+    function applyTheme(themeName) {
+        const safeTheme = THEMES[themeName] ? themeName : 'theme-nocturne';
+        Object.keys(THEMES).forEach(name => htmlEl.classList.remove(name));
+        htmlEl.classList.add(safeTheme);
+        localStorage.setItem(THEME_STORAGE_KEY, safeTheme);
+        if (themeBtn) {
+            themeBtn.querySelector('span:first-child').textContent = THEMES[safeTheme].label;
+            themeBtn.querySelector('.material-symbols-outlined').textContent = THEMES[safeTheme].icon;
+        }
+        document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-theme-choice') === safeTheme);
+        });
+    }
+
+    function cycleTheme() {
+        const currentTheme = Object.keys(THEMES).find(name => htmlEl.classList.contains(name)) || 'theme-nocturne';
+        const nextTheme = currentTheme === 'theme-nocturne' ? 'theme-solstice' : 'theme-nocturne';
+        applyTheme(nextTheme);
+    }
+
     // 1. Theme Toggling Setup
     const themeBtn = document.getElementById('theme-btn');
     const htmlEl = document.documentElement;
+    const operatorNameEl = document.getElementById('operator-name');
+    const operatorStatusEl = document.getElementById('operator-status');
+    const operatorAvatarEl = document.getElementById('operator-avatar-img');
+    const topbarLoginBtn = document.getElementById('topbar-login-btn');
+    const authOverlay = document.getElementById('auth-overlay');
+    const authTitle = document.getElementById('auth-title');
+    const authSubtitle = document.getElementById('auth-subtitle');
+    const guestEntryBtn = document.getElementById('guest-entry-btn');
+    const showLoginBtn = document.getElementById('show-login-btn');
+    const authBackBtn = document.getElementById('auth-back-btn');
+    const loginForm = document.getElementById('login-form');
+    const loginNameInput = document.getElementById('login-name');
+    const loginEmailInput = document.getElementById('login-email');
+    const authChoiceActions = document.getElementById('auth-choice-actions');
 
-    themeBtn.addEventListener('click', () => {
-        const isDark = htmlEl.classList.contains('dark');
-        if (isDark) {
-            htmlEl.classList.remove('dark'); // Switched to Light theme
-            themeBtn.querySelector('span:first-child').textContent = 'Theme: Light';
-            themeBtn.querySelector('.material-symbols-outlined').textContent = 'light_mode';
-        } else {
-            htmlEl.classList.add('dark'); // Switched to Dark theme
-            themeBtn.querySelector('span:first-child').textContent = 'Theme: Dark';
-            themeBtn.querySelector('.material-symbols-outlined').textContent = 'dark_mode';
+    applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'theme-nocturne');
+    themeBtn.addEventListener('click', cycleTheme);
+
+    function storeUser(user) {
+        currentUser = user;
+        updateOperatorCard();
+    }
+
+    function updateOperatorCard() {
+        const safeUser = currentUser || { name: 'Guest', email: '', mode: 'guest' };
+        const avatarName = encodeURIComponent(safeUser.name || 'Guest');
+        const avatarBg = safeUser.mode === 'guest' ? '64748b' : '1f6feb';
+        operatorNameEl.textContent = safeUser.name || 'Guest';
+        operatorStatusEl.textContent = safeUser.mode === 'guest' ? 'Guest session' : (safeUser.email || 'Logged in');
+        operatorAvatarEl.src = `https://ui-avatars.com/api/?name=${avatarName}&background=${avatarBg}&color=fff`;
+        topbarLoginBtn.classList.toggle('hidden', safeUser.mode !== 'guest');
+    }
+
+    function setAuthMode(mode) {
+        const isLogin = mode === 'login';
+        authTitle.textContent = isLogin ? 'Login to unlock services' : 'Choose how to enter';
+        authSubtitle.textContent = isLogin
+            ? 'Enter your details to access inbox, rules, VS Code context, session history, and the connected services.'
+            : 'Continue as a guest to explore the dashboard, or log in to unlock inbox, rules, history, and live services.';
+        authChoiceActions.classList.toggle('hidden', isLogin);
+        loginForm.classList.toggle('hidden', !isLogin);
+        if (isLogin) setTimeout(() => loginNameInput?.focus(), 50);
+    }
+
+    function openAuthOverlay(mode = 'choice') {
+        authOverlay.classList.remove('hidden');
+        setAuthMode(mode);
+    }
+
+    function closeAuthOverlay() {
+        authOverlay.classList.add('hidden');
+    }
+
+    function loadProtectedView(targetId, btn) {
+        navButtons.forEach(b => {
+            b.classList.remove('active', 'text-dynamic');
+            b.classList.add('text-dynamic-variant', 'bg-transparent');
+        });
+        btn.classList.add('active');
+        btn.classList.remove('text-dynamic-variant', 'bg-transparent');
+        loadView(targetId);
+        breadcrumb.textContent = btn.querySelector('span:last-child').textContent;
+    }
+
+    function isGuest() {
+        return !currentUser || currentUser.mode === 'guest';
+    }
+
+    currentUser = { name: 'Guest', email: '', mode: 'guest' };
+    updateOperatorCard();
+    openAuthOverlay('choice');
+
+    guestEntryBtn?.addEventListener('click', () => {
+        storeUser({ name: 'Guest', email: '', mode: 'guest' });
+        pendingProtectedTarget = null;
+        closeAuthOverlay();
+    });
+
+    showLoginBtn?.addEventListener('click', () => setAuthMode('login'));
+    authBackBtn?.addEventListener('click', () => setAuthMode('choice'));
+    topbarLoginBtn?.addEventListener('click', () => openAuthOverlay('login'));
+
+    loginForm?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = loginNameInput.value.trim();
+        const email = loginEmailInput.value.trim();
+        if (!name || !email) return;
+
+        storeUser({ name, email, mode: 'user' });
+        closeAuthOverlay();
+
+        if (pendingProtectedTarget) {
+            const btn = [...navButtons].find(b => b.getAttribute('data-target') === pendingProtectedTarget);
+            if (btn) loadProtectedView(pendingProtectedTarget, btn);
+            pendingProtectedTarget = null;
         }
     });
 
@@ -40,21 +178,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            // Unset active states
-            navButtons.forEach(b => {
-                b.classList.remove('active', 'text-dynamic');
-                b.classList.add('text-dynamic-variant', 'bg-transparent');
-            });
-            // Set active state on clicked
-            btn.classList.add('active');
-            btn.classList.remove('text-dynamic-variant', 'bg-transparent');
-
-            // Find target and load
             const targetId = btn.getAttribute('data-target');
-            loadView(targetId);
+            const isProtected = btn.getAttribute('data-protected') === 'true';
 
-            // Update Breadcrumb Text
-            breadcrumb.textContent = btn.querySelector('span:last-child').textContent;
+            if (isProtected && isGuest()) {
+                pendingProtectedTarget = targetId;
+                openAuthOverlay('login');
+                return;
+            }
+
+            loadProtectedView(targetId, btn);
         });
     });
 
@@ -226,11 +359,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (loadBtn) loadBtn.addEventListener('click', loadHistory);
             setTimeout(loadHistory, 300); // Auto-load today
         }
-    }
 
-    // 4. VS Code Cognitive Analytics Integration
-    const { ipcRenderer } = require('electron');
-    const analytics = require('./analytics');
+        if (viewName === 'settings') {
+            document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-theme-choice') === (localStorage.getItem(THEME_STORAGE_KEY) || 'theme-nocturne'));
+                btn.addEventListener('click', () => applyTheme(btn.getAttribute('data-theme-choice')));
+            });
+        }
+
+        if (viewName === 'vscode-context') {
+            renderVsCodeContextView();
+        }
+    }
 
     const ICON_MAP = {
         'typing_burst': 'edit_note',
@@ -328,6 +468,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateVsCodeContextState(payload, snap) {
+        latestVsCodePayload = payload;
+        latestCognitiveSnapshot = snap;
+        vscodeEventHistory.unshift(payload);
+        if (vscodeEventHistory.length > 8) vscodeEventHistory.pop();
+        renderVsCodeContextView();
+    }
+
+    function summarizePayload(payload) {
+        if (!payload) return 'No event summary available yet.';
+        if (payload.event === 'typing_burst') return `${payload.duration_seconds ?? 0}s typing burst with ${payload.char_count ?? 0} chars.`;
+        if (payload.event === 'editor_switch_velocity') return `${payload.switch_count ?? 0} file switches detected in the last minute.`;
+        if (payload.event === 'diagnostics_snapshot') return `${payload.error_count ?? 0} diagnostics currently active in the workspace.`;
+        if (payload.event === 'focus_state_changed') return `Focus state changed to ${(payload.to_state || 'unknown').replace('_', ' ')}.`;
+        return payload.file ? `Working in ${payload.file.split('/').pop()}.` : 'Activity pulse received from VS Code.';
+    }
+
+    function renderVsCodeContextView() {
+        const stateEl = document.getElementById('vc-state');
+        if (!stateEl) return;
+
+        const snap = latestCognitiveSnapshot || analytics.getSnapshot();
+        const payload = latestVsCodePayload;
+
+        stateEl.textContent = snap?.stateInfo?.label || 'Idle';
+        document.getElementById('vc-load').textContent = snap?.cognitiveLoad ?? 0;
+        document.getElementById('vc-latest-event').textContent = payload ? formatEventTitle(payload.event) : 'Waiting for VS Code activity...';
+        document.getElementById('vc-file').textContent = payload?.file || 'No file detected yet';
+        document.getElementById('vc-language').textContent = payload?.language || snap?.session?.primaryLanguage || '--';
+        document.getElementById('vc-time').textContent = formatTimestamp(payload?.timestamp);
+        document.getElementById('vc-summary').textContent = summarizePayload(payload);
+        document.getElementById('vc-chars').textContent = payload?.char_count ?? 0;
+        document.getElementById('vc-switches').textContent = payload?.switch_count ?? 0;
+        document.getElementById('vc-errors').textContent = payload?.error_count ?? 0;
+        document.getElementById('vc-session-min').textContent = snap?.session?.sessionMinutes ?? 0;
+        document.getElementById('vc-raw-payload').textContent = payload ? JSON.stringify(payload, null, 2) : 'No payload received yet.';
+
+        const eventList = document.getElementById('vc-event-list');
+        if (eventList) {
+            if (!vscodeEventHistory.length) {
+                eventList.innerHTML = '<div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant">Waiting for VS Code activity...</div>';
+            } else {
+                eventList.innerHTML = vscodeEventHistory.map(item => `
+                    <div class="glass-panel rounded-2xl p-4 border-l-4 border-secondary-dynamic">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="font-semibold text-dynamic text-sm">${formatEventTitle(item.event)}</div>
+                            <div class="text-[11px] text-dynamic-variant">${formatTimestamp(item.timestamp)}</div>
+                        </div>
+                        <div class="text-xs text-dynamic-variant mt-2">${summarizePayload(item)}</div>
+                    </div>
+                `).join('');
+            }
+        }
+    }
+
     function addFeedCard(payload) {
         const feed = document.getElementById('vscode-activity-feed');
         if (!feed) return;
@@ -362,6 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ipcRenderer.on('vscode-event', (_, payload) => {
         const snap = analytics.processEvent(payload);
+        updateVsCodeContextState(payload, snap);
         addFeedCard(payload);
         updateCognitiveUI(snap);
     });

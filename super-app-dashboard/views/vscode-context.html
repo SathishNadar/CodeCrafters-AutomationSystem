@@ -1,0 +1,118 @@
+<div id="section-vscode-context" class="view-section space-y-6">
+    <section class="hero-surface border-l-4 border-secondary-dynamic">
+        <div class="hero-grid">
+            <div class="hero-copy">
+                <div class="hero-kicker">
+                    <span class="hero-kicker-dot"></span>
+                    <span>VS Code Context</span>
+                </div>
+                <div class="space-y-3">
+                    <h2 class="hero-title text-dynamic">Live editor state, decoded</h2>
+                    <p class="max-w-2xl text-sm text-dynamic-variant leading-relaxed">
+                        This view reads the live ContextBridge payload coming from VS Code and turns it into an operator-friendly status panel.
+                    </p>
+                </div>
+            </div>
+
+            <div class="hero-metrics">
+                <div class="hero-stat-card">
+                    <span class="hero-stat-label">Current State</span>
+                    <span id="vc-state" class="hero-stat-value">Idle</span>
+                </div>
+                <div class="hero-stat-card">
+                    <span class="hero-stat-label">Cognitive Load</span>
+                    <span id="vc-load" class="hero-stat-value">0</span>
+                </div>
+                <div class="hero-stat-card hero-stat-card-accent">
+                    <span class="hero-stat-label">Latest Event</span>
+                    <span id="vc-latest-event" class="hero-stat-note">Waiting for VS Code activity...</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-grid">
+        <div class="dashboard-column-main">
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Current File Context</p>
+                        <h3 class="panel-title">Where attention is pointed</h3>
+                    </div>
+                </div>
+
+                <div class="context-grid">
+                    <div class="context-card">
+                        <span class="metric-label">File</span>
+                        <div id="vc-file" class="context-value">No file detected yet</div>
+                    </div>
+                    <div class="context-card">
+                        <span class="metric-label">Language</span>
+                        <div id="vc-language" class="context-value">--</div>
+                    </div>
+                    <div class="context-card">
+                        <span class="metric-label">Timestamp</span>
+                        <div id="vc-time" class="context-value">--</div>
+                    </div>
+                    <div class="context-card">
+                        <span class="metric-label">Event Summary</span>
+                        <div id="vc-summary" class="context-value">No event summary available yet.</div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Recent Signal Timeline</p>
+                        <h3 class="panel-title">Last VS Code events</h3>
+                    </div>
+                </div>
+                <div id="vc-event-list" class="space-y-3">
+                    <div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant">Waiting for VS Code activity...</div>
+                </div>
+            </article>
+        </div>
+
+        <div class="dashboard-column-side">
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Signal Metrics</p>
+                        <h3 class="panel-title">Live counters</h3>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Chars</span>
+                        <span id="vc-chars" class="metric-value">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Switches</span>
+                        <span id="vc-switches" class="metric-value">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Errors</span>
+                        <span id="vc-errors" class="metric-value">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Session Min</span>
+                        <span id="vc-session-min" class="metric-value">0</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Raw Payload</p>
+                        <h3 class="panel-title">ContextBridge event</h3>
+                    </div>
+                </div>
+
+                <pre id="vc-raw-payload" class="raw-payload-card">No payload received yet.</pre>
+            </article>
+        </div>
+    </section>
+</div>

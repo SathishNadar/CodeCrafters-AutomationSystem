@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html class="theme-nocturne" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Neon Observatory | AI Context Engine</title>
+    <title>Signal Forge | Focus Operations Center</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <link href="styles.css" rel="stylesheet" />
+    <link href="styles.css" rel="stylesheet"/>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -31,76 +31,140 @@
         }
     </script>
 </head>
-<body class="antialiased overflow-hidden">
-<!-- SideNavBar -->
-<aside class="h-screen w-64 fixed left-0 top-0 border-r border-[var(--outline-var)] bg-[var(--surface-low)]/80 backdrop-blur-3xl flex flex-col p-6 z-50 transition-colors">
-    <div class="mb-10 flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-            <span class="material-symbols-outlined text-white text-lg">settings_suggest</span>
-        </div>
-        <div>
-            <h1 class="text-xl font-bold tracking-tighter text-dynamic leading-none">Neon Observatory</h1>
-            <p class="text-[10px] text-primary-dynamic font-medium tracking-widest uppercase mt-1">AI Context Layer</p>
+<body class="app-shell antialiased">
+    <div class="app-backdrop"></div>
+
+    <div class="app-frame">
+        <aside class="app-sidebar">
+            <div class="brand-block">
+                <div class="brand-mark">
+                    <span class="material-symbols-outlined text-[20px]">timeline</span>
+                </div>
+                <div>
+                    <p class="brand-kicker">Cognitive Ops</p>
+                    <h1 class="brand-title text-dynamic">Signal Forge</h1>
+                </div>
+            </div>
+
+            <div class="sidebar-intro">
+                <p class="sidebar-intro-label">Mission Control</p>
+                <p class="text-sm text-dynamic-variant leading-relaxed">
+                    A focused command surface for attention, signal quality, and interruption handling.
+                </p>
+            </div>
+
+            <nav class="flex-1 space-y-2">
+                <button data-target="dashboard" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">space_dashboard</span>
+                    <span class="text-sm">Dashboard</span>
+                </button>
+                <button data-target="rules" data-protected="true" class="nav-btn text-dynamic-variant w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">rule_settings</span>
+                    <span class="text-sm">Context Rules</span>
+                </button>
+                <button data-target="unified-inbox" data-protected="true" class="nav-btn text-dynamic-variant w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">inbox_customize</span>
+                    <span class="text-sm">Unified Inbox</span>
+                </button>
+                <button data-target="vscode-context" data-protected="true" class="nav-btn text-dynamic-variant w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">code</span>
+                    <span class="text-sm">VS Code Context</span>
+                </button>
+                <button data-target="settings" data-protected="true" class="nav-btn text-dynamic-variant w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">tune</span>
+                    <span class="text-sm">Settings</span>
+                </button>
+                <button data-target="test-notification" data-protected="true" class="nav-btn text-dynamic-variant w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">wifi_tethering</span>
+                    <span class="text-sm">Test Notification</span>
+                </button>
+                <button data-target="history" data-protected="true" class="nav-btn text-dynamic-variant w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all">
+                    <span class="material-symbols-outlined">stacked_line_chart</span>
+                    <span class="text-sm">Session History</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-chip">
+                    <span class="status-dot"></span>
+                    <span class="text-xs font-semibold uppercase tracking-[0.24em] text-dynamic-variant">Live Monitoring</span>
+                </div>
+
+                <button id="theme-btn" class="theme-switcher">
+                    <span>Theme: Dark</span>
+                    <span class="material-symbols-outlined text-base">dark_mode</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="app-main">
+            <header class="topbar">
+                <div>
+                    <p id="breadcrumb-parent" class="topbar-kicker">Ops View</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="material-symbols-outlined text-dynamic-variant text-sm">chevron_right</span>
+                        <span id="breadcrumb-current" class="topbar-title">Dashboard</span>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    <label class="search-shell hidden lg:flex">
+                        <span class="material-symbols-outlined text-[18px] text-dynamic-variant">search</span>
+                        <input placeholder="Search signals, tasks, history..." type="text"/>
+                    </label>
+
+                    <div class="operator-card">
+                        <div class="operator-copy">
+                            <span class="text-[10px] uppercase tracking-[0.22em] text-dynamic-variant">Operator</span>
+                            <span id="operator-name" class="text-sm font-semibold text-dynamic">Guest</span>
+                            <span id="operator-status" class="text-[11px] text-dynamic-variant">Guest session</span>
+                        </div>
+                        <div class="operator-avatar">
+                            <img id="operator-avatar-img" src="https://ui-avatars.com/api/?name=Guest&background=64748b&color=fff" alt="User">
+                        </div>
+                        <button id="topbar-login-btn" class="operator-login-btn">Login</button>
+                    </div>
+                </div>
+            </header>
+
+            <section id="view-container" class="view-host">
+                <!-- Views will be injected here by renderer.js -->
+            </section>
+        </main>
+    </div>
+
+    <div id="auth-overlay" class="auth-overlay hidden">
+        <div class="auth-panel">
+            <div>
+                <p class="panel-kicker">Welcome</p>
+                <h2 id="auth-title" class="panel-title text-dynamic">Choose how to enter</h2>
+                <p id="auth-subtitle" class="text-sm text-dynamic-variant mt-2 leading-relaxed">
+                    Continue as a guest to explore the dashboard, or log in to unlock inbox, rules, history, and live services.
+                </p>
+            </div>
+
+            <div id="auth-choice-actions" class="auth-choice-actions">
+                <button id="guest-entry-btn" class="auth-ghost-btn">Continue as Guest</button>
+                <button id="show-login-btn" class="auth-primary-btn">Login to Continue</button>
+            </div>
+
+            <form id="login-form" class="auth-form hidden">
+                <label class="auth-field">
+                    <span>Name</span>
+                    <input id="login-name" type="text" placeholder="Enter your name" required />
+                </label>
+                <label class="auth-field">
+                    <span>Email</span>
+                    <input id="login-email" type="email" placeholder="name@company.com" required />
+                </label>
+                <div class="auth-form-actions">
+                    <button id="auth-back-btn" type="button" class="auth-ghost-btn">Back</button>
+                    <button type="submit" class="auth-primary-btn">Login</button>
+                </div>
+            </form>
         </div>
     </div>
-    
-    <nav class="flex-1 space-y-2">
-        <button data-target="dashboard" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">dashboard</span> <span class="text-sm">Dashboard</span>
-        </button>
-        <button data-target="rules" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">rule</span> <span class="text-sm">Context Rules</span>
-        </button>
-        <button data-target="notifications" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">notifications</span> <span class="text-sm">Notifications</span>
-        </button>
-        <button data-target="unified-inbox" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">all_inbox</span> <span class="text-sm">Unified Inbox</span>
-        </button>
-        <button data-target="settings" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">settings</span> <span class="text-sm">Settings</span>
-        </button>
-        <button data-target="test-notification" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">network_ping</span> <span class="text-sm">Test Notification</span>
-        </button>
-        <button data-target="history" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <span class="material-symbols-outlined">history</span> <span class="text-sm">Session History</span>
-        </button>
-    </nav>
-    
-    <div class="mt-auto space-y-4">
-        <button id="theme-btn" class="w-full flex items-center justify-between px-4 py-3 bg-[var(--surface-high)] rounded-2xl border border-[var(--outline-var)] text-xs font-medium text-dynamic-variant hover:opacity-80 transition-colors">
-            <span>Theme: Dark</span>
-            <span class="material-symbols-outlined text-sm">dark_mode</span>
-        </button>
-    </div>
-</aside>
 
-<!-- Main Canvas -->
-<main class="ml-64 min-h-screen flex flex-col relative bg-dynamic transition-colors">
-    <!-- TopNavBar -->
-    <header class="fixed top-0 right-0 left-64 h-16 bg-dynamic/60 backdrop-blur-2xl border-b border-[var(--outline-var)] flex justify-between items-center px-8 z-40 transition-colors">
-        <div class="flex items-center gap-2">
-            <span id="breadcrumb-parent" class="text-sm font-medium uppercase tracking-widest text-dynamic-variant">View</span>
-            <span class="material-symbols-outlined text-dynamic-variant text-sm">chevron_right</span>
-            <span id="breadcrumb-current" class="text-sm font-bold uppercase tracking-widest text-secondary-dynamic">Dashboard</span>
-        </div>
-        <div class="flex items-center gap-4">
-            <div class="relative hidden lg:block">
-                <input class="bg-[var(--surface-lowest)] border-none rounded-full px-5 py-1.5 text-xs w-64 text-dynamic focus:ring-1 focus:ring-primary-dynamic transition-all placeholder:text-[var(--on-surface-variant)]" placeholder="Search context..." type="text"/>
-                <span class="material-symbols-outlined absolute right-3 top-1.5 text-[var(--on-surface-variant)] text-sm">search</span>
-            </div>
-            <div class="w-8 h-8 rounded-full overflow-hidden border border-[var(--primary-col)]">
-                <img src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="User">
-            </div>
-        </div>
-    </header>
-
-    <!-- VIEWS CONTAINER -->
-    <section id="view-container" class="mt-16 p-8 flex-1 overflow-y-auto space-y-8 pb-20">
-        <!-- Views will be injected here by renderer.js -->
-    </section>
-</main>
-<script src="renderer.js"></script>
+    <script src="renderer.js"></script>
 </body>
 </html>
