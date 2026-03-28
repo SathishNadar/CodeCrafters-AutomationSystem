@@ -1,115 +1,122 @@
 <!-- DASHBOARD SECTION -->
 <div id="section-dashboard" class="view-section space-y-8">
-    <!-- Context Engine Hero -->
-    <div class="glass-panel rounded-xl p-8 relative overflow-hidden group border border-dynamic">
-        <div class="relative z-10 flex flex-col md:flex-row justify-between gap-8">
-            <div class="max-w-xl">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface-lowest)] mb-4">
-                    <span class="w-2 h-2 rounded-full bg-secondary-dynamic animate-pulse"></span>
-                    <span class="text-[10px] font-bold text-secondary-dynamic uppercase tracking-widest">Active Neural Filter</span>
+
+    <!-- State Hero Banner -->
+    <div id="state-hero" class="glass-panel rounded-xl p-6 relative overflow-hidden border-l-4 border-blue-500 transition-all duration-700">
+        <div class="relative z-10 flex flex-col md:flex-row justify-between gap-6 items-center">
+            <div class="flex items-center gap-5">
+                <div id="state-icon-wrap" class="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <span id="state-icon" class="material-symbols-outlined text-blue-400 text-3xl">pause_circle</span>
                 </div>
-                <!-- Updated Title from User prompt modification -->
-                <h2 class="text-3xl font-bold tracking-tight text-dynamic mb-2">Deep Work Mode Active</h2>
-                <p class="text-dynamic-variant leading-relaxed text-sm">Context Engine is isolating high-value tasks. Non-essential communications are currently buffered.</p>
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                        <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Live Cognitive State</span>
+                    </div>
+                    <h2 id="state-label" class="text-2xl font-bold tracking-tight text-dynamic">Awaiting Signal...</h2>
+                    <p id="state-desc" class="text-dynamic-variant text-sm mt-1">Start the ContextBridge extension in VS Code</p>
+                </div>
             </div>
-            <div class="flex flex-col gap-3 min-w-[280px]">
-                <label class="toggle-label flex items-center justify-between p-3 bg-[var(--surface-lowest)] rounded-xl cursor-pointer">
-                    <span class="text-sm font-medium text-dynamic">Auto-Delay Distractions</span>
-                    <div class="toggle-track w-10 h-5 bg-primary-dynamic rounded-full flex items-center px-1 transition-colors">
-                        <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
-                    </div>
-                </label>
-                <label class="toggle-label flex items-center justify-between p-3 bg-[var(--surface-lowest)] rounded-xl cursor-pointer">
-                    <span class="text-sm font-medium text-dynamic">Intercept Social Media</span>
-                    <div class="toggle-track w-10 h-5 bg-secondary-dynamic rounded-full flex items-center px-1 transition-colors">
-                        <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
-                    </div>
-                </label>
+            <div class="flex items-center gap-6 shrink-0">
+                <div class="text-center">
+                    <div id="state-duration" class="text-3xl font-bold text-dynamic">—</div>
+                    <div class="text-xs text-dynamic-variant mt-1">Min in State</div>
+                </div>
+                <div class="text-center">
+                    <div id="session-minutes" class="text-3xl font-bold text-dynamic">0</div>
+                    <div class="text-xs text-dynamic-variant mt-1">Session Min</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Dashboard Analytics & Action Hub -->
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        <!-- Action Hub -->
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+        <!-- LEFT: Activity Feed + Toggles (col-span-1) -->
         <div class="flex flex-col gap-4">
-            <h3 class="text-lg font-bold text-dynamic">Unified Activity Stream</h3>
-            
-            <!-- VS Code Signal Feed (Dynamic) -->
+            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Live Activity Feed</h3>
             <div id="vscode-activity-feed" class="flex flex-col gap-3">
-                <div class="glass-panel rounded-lg p-5 flex flex-col gap-3 animate-fade-in-up border-l-4 border-primary-dynamic">
-                    <div class="flex justify-between items-center">
-                        <h4 class="font-bold text-dynamic flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary-dynamic text-lg">terminal</span> 
-                            System Initialization
-                        </h4>
-                        <span class="text-[10px] text-dynamic-variant uppercase font-bold tracking-widest">Awaiting Bridge...</span>
-                    </div>
-                    <p id="vscode-last-event" class="text-sm text-dynamic-variant italic">Waiting for connection from ContextBridge extension...</p>
+                <div class="glass-panel rounded-lg p-4 flex flex-col gap-2 border-l-4 border-primary-dynamic">
+                    <p class="text-sm text-dynamic-variant italic">Waiting for ContextBridge...</p>
                 </div>
             </div>
-
-            <div class="glass-panel rounded-lg p-5 flex flex-col gap-4" id="notification-1">
-                <div class="flex justify-between items-center">
-                    <h4 class="font-bold text-dynamic flex items-center gap-2"><span class="material-symbols-outlined text-[var(--secondary-col)]">forum</span> Slack: Team Sync</h4>
-                    <span class="text-xs text-dynamic-variant">2m ago</span>
+            <!-- Focus Toggles -->
+            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest mt-2">Focus Controls</h3>
+            <label class="toggle-label flex items-center justify-between p-3 bg-[var(--surface-lowest)] rounded-xl cursor-pointer">
+                <span class="text-sm font-medium text-dynamic">Auto-Delay Distractions</span>
+                <div class="toggle-track w-10 h-5 bg-primary-dynamic rounded-full flex items-center px-1 transition-colors">
+                    <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
                 </div>
-                <p class="text-sm text-dynamic-variant">Can you review the latest Figma assets before the meeting?</p>
-                <div class="grid grid-cols-3 gap-2 mt-2">
-                    <button class="action-btn py-1.5 rounded-lg bg-primary-dynamic text-white text-xs font-bold hover:opacity-80">Quick Reply</button>
-                    <button class="action-btn py-1.5 rounded-lg bg-[var(--surface-high)] text-dynamic border border-dynamic text-xs hover:opacity-80">Archive</button>
-                    <button class="action-btn py-1.5 rounded-lg bg-[var(--surface-high)] text-dynamic border border-dynamic text-xs hover:opacity-80">Snooze</button>
+            </label>
+            <label class="toggle-label flex items-center justify-between p-3 bg-[var(--surface-lowest)] rounded-xl cursor-pointer">
+                <span class="text-sm font-medium text-dynamic">Intercept Social Media</span>
+                <div class="toggle-track w-10 h-5 bg-secondary-dynamic rounded-full flex items-center px-1 transition-colors">
+                    <div class="toggle-thumb w-3.5 h-3.5 bg-white rounded-full translate-x-4 transition-transform"></div>
+                </div>
+            </label>
+        </div>
+
+        <!-- CENTER: Cognitive Load + Session Stats (col-span-1) -->
+        <div class="flex flex-col gap-4">
+            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Cognitive Load</h3>
+            <!-- Load Gauge -->
+            <div class="glass-panel rounded-xl p-5 flex flex-col items-center gap-4">
+                <div class="relative w-36 h-36">
+                    <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-high)" stroke-width="10"/>
+                        <circle id="load-arc" cx="50" cy="50" r="42" fill="none" stroke="#3b82f6" stroke-width="10"
+                            stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"
+                            class="transition-all duration-700"/>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="load-score" class="text-3xl font-bold text-dynamic">0</span>
+                        <span class="text-[10px] text-dynamic-variant">/ 100</span>
+                    </div>
+                </div>
+                <div id="load-label" class="text-sm font-semibold text-green-400">Low Load — Comfortable</div>
+                <p id="load-sub" class="text-xs text-dynamic-variant text-center">Errors × 3.5 + Switch Velocity × 2.5</p>
+            </div>
+
+            <!-- Session Stats -->
+            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Session Stats</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
+                    <span class="material-symbols-outlined text-primary-dynamic">timer</span>
+                    <span id="stat-focus" class="text-2xl font-bold text-dynamic">0</span>
+                    <span class="text-[10px] text-dynamic-variant">Focus Min</span>
+                </div>
+                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
+                    <span class="material-symbols-outlined text-secondary-dynamic">save</span>
+                    <span id="stat-saves" class="text-2xl font-bold text-dynamic">0</span>
+                    <span class="text-[10px] text-dynamic-variant">Files Saved</span>
+                </div>
+                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
+                    <span class="material-symbols-outlined text-green-400">commit</span>
+                    <span id="stat-commits" class="text-2xl font-bold text-dynamic">0</span>
+                    <span class="text-[10px] text-dynamic-variant">Commits</span>
+                </div>
+                <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 items-center">
+                    <span class="material-symbols-outlined text-yellow-400">code</span>
+                    <span id="stat-lang" class="text-lg font-bold text-dynamic truncate max-w-[80px]">—</span>
+                    <span class="text-[10px] text-dynamic-variant">Top Language</span>
                 </div>
             </div>
         </div>
 
-        <!-- Detailed Analytics Tabs -->
-        <div class="glass-panel rounded-xl p-6">
-            <div class="flex items-center justify-between mb-4 border-b border-dynamic pb-2">
-                <div class="flex gap-4">
-                    <button class="tab-btn active pb-2 text-sm text-dynamic-variant" data-tab="tab-focus">Focus Trends</button>
-                    <button class="tab-btn pb-2 text-sm text-dynamic-variant" data-tab="tab-distractions">Intercepts</button>
-                    <button class="tab-btn pb-2 text-sm text-dynamic-variant" data-tab="tab-context">Context Score</button>
-                </div>
-            </div>
-            
-            <div id="tab-focus" class="tab-content active h-48 flex flex-col justify-end">
-                <div class="flex items-end gap-2 h-32 mb-4">
-                    <div class="flex-1 bg-[var(--surface-lowest)] hover:bg-primary-dynamic rounded-t-md h-[40%] transition-colors relative group"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 text-dynamic">4h</span></div>
-                    <div class="flex-1 bg-[var(--surface-lowest)] hover:bg-primary-dynamic rounded-t-md h-[70%] transition-colors relative group"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 text-dynamic">6h</span></div>
-                    <div class="flex-1 bg-secondary-dynamic rounded-t-md h-[95%] relative"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-bold text-secondary-dynamic">8.5h</span></div>
-                    <div class="flex-1 bg-[var(--surface-lowest)] hover:bg-primary-dynamic rounded-t-md h-[60%] transition-colors"></div>
-                </div>
-                <p class="text-xs text-dynamic-variant text-center">Your Deep Work increased by 15% this week.</p>
-            </div>
-
-            <div id="tab-distractions" class="tab-content h-48">
-                <div class="grid grid-cols-2 gap-4 h-full">
-                    <div class="bg-[var(--surface-low)] rounded-lg p-4 flex flex-col justify-center items-center">
-                        <span class="text-3xl font-bold text-primary-dynamic">142</span>
-                        <span class="text-xs text-dynamic-variant text-center mt-1">Social Media<br/>Notifications Blocked</span>
+        <!-- RIGHT: Smart Recommendations (col-span-1) -->
+        <div class="flex flex-col gap-4">
+            <h3 class="text-sm font-bold text-dynamic-variant uppercase tracking-widest">Smart Recommendations</h3>
+            <div id="recommendations-feed" class="flex flex-col gap-3">
+                <div class="glass-panel rounded-lg p-5 flex flex-col gap-2 opacity-60">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-dynamic-variant">lightbulb</span>
+                        <span class="text-sm font-medium text-dynamic">Insights appear here</span>
                     </div>
-                    <div class="bg-[var(--surface-low)] rounded-lg p-4 flex flex-col justify-center items-center">
-                        <span class="text-3xl font-bold text-secondary-dynamic">89</span>
-                        <span class="text-xs text-dynamic-variant text-center mt-1">Emails Snoozed<br/>Automatically</span>
-                    </div>
-                </div>
-            </div>
-
-            <div id="tab-context" class="tab-content h-48 flex flex-col gap-2 overflow-y-auto">
-                <div class="bg-[var(--surface-low)] p-3 rounded-lg flex justify-between items-center">
-                    <span class="text-sm font-bold text-dynamic">Morning Coding</span>
-                    <span class="text-xs font-bold text-secondary-dynamic">98% Efficient</span>
-                </div>
-                <div class="bg-[var(--surface-low)] p-3 rounded-lg flex justify-between items-center">
-                    <span class="text-sm font-bold text-dynamic">Afternoon Meetings</span>
-                    <span class="text-xs font-bold text-primary-dynamic">72% Efficient</span>
-                </div>
-                <div class="bg-[var(--surface-low)] p-3 rounded-lg flex justify-between items-center">
-                    <span class="text-sm font-bold text-dynamic">Evening Review</span>
-                    <span class="text-xs font-bold text-[#f59e0b]">54% Efficient</span>
+                    <p class="text-xs text-dynamic-variant">Recommendations will surface as your activity patterns are analyzed.</p>
                 </div>
             </div>
         </div>
+
     </div>
 </div>
