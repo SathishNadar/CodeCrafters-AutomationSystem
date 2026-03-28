@@ -1,0 +1,39 @@
+{
+  "name": "context-bridge",
+  "displayName": "ContextBridge",
+  "description": "Streams developer activity signals to a local Electron-based super-app.",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextBridge.ping",
+        "title": "ContextBridge: Ping Server"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/node-fetch": "^2.6.11",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  }
+}
