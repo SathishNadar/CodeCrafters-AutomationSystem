@@ -1,0 +1,37 @@
+<!-- CONTEXT RULES SECTION -->
+<div id="section-rules" class="view-section">
+    <h2 class="text-2xl font-bold text-dynamic mb-6">Automation Rules</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-panel p-6 rounded-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-dynamic pb-4">
+                <div>
+                    <h4 class="font-bold text-dynamic">When: Developer IDE is open</h4>
+                    <p class="text-sm text-dynamic-variant mt-1">Mute all Slack channels except @mentions. Re-route other notifications to Action Hub.</p>
+                </div>
+            </div>
+            <div class="flex justify-between items-center pt-2">
+                <span class="text-xs font-medium text-primary-dynamic">3 triggers today</span>
+                <button class="px-4 py-1.5 bg-primary-dynamic rounded-full text-white text-xs font-bold shadow-md hover:opacity-80">Active</button>
+            </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-xl space-y-4 opacity-70 hover:opacity-100 transition-opacity">
+            <div class="flex items-center justify-between border-b border-dynamic pb-4">
+                <div>
+                    <h4 class="font-bold text-dynamic">When: Calender shows "Focus Time"</h4>
+                    <p class="text-sm text-dynamic-variant mt-1">Block all inbound emails and silently drop unread counts. Auto-reply: "Focusing".</p>
+                </div>
+            </div>
+            <div class="flex justify-between items-center pt-2">
+                <span class="text-xs font-medium text-dynamic-variant">0 triggers today</span>
+                <button class="px-4 py-1.5 bg-transparent border border-dynamic rounded-full text-dynamic text-xs font-bold hover:bg-[var(--surface-higher)]">Inactive</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 flex justify-center">
+        <button class="flex items-center gap-2 px-6 py-3 bg-[var(--surface-high)] border border-dashed border-dynamic rounded-xl text-dynamic hover:text-primary-dynamic hover:border-primary-dynamic transition-all">
+            <span class="material-symbols-outlined">add</span> Create New Rule
+        </button>
+    </div>
+</div>

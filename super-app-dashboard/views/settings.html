@@ -1,0 +1,47 @@
+<!-- SETTINGS SECTION -->
+<div id="section-settings" class="view-section">
+    <h2 class="text-2xl font-bold text-dynamic mb-6">App Settings</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="glass-panel p-6 rounded-xl flex flex-col gap-6">
+            <div>
+                <h3 class="font-bold text-lg text-dynamic mb-1">System Behavior</h3>
+                <p class="text-xs text-dynamic-variant mb-4">Control how the Context Engine interacts with your OS.</p>
+            </div>
+            
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-dynamic">Start on Boot</span>
+                <input type="checkbox" checked class="rounded border-dynamic bg-transparent text-primary-dynamic focus:ring-primary-dynamic w-5 h-5 cursor-pointer">
+            </div>
+            
+            <hr class="border-dynamic">
+            
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-dynamic">AI Aggression Level</span>
+                <select class="bg-[var(--surface-lowest)] border border-dynamic text-dynamic rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-dynamic cursor-pointer">
+                    <option>Moderate (Recommended)</option>
+                    <option>Strict (Blocks EVERYTHING)</option>
+                    <option>Passive (Monitoring Only)</option>
+                </select>
+            </div>
+            
+            <hr class="border-dynamic">
+
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="text-sm font-medium text-dynamic block">Data Syncing</span>
+                    <span class="text-xs text-dynamic-variant">Sync context across devices securely.</span>
+                </div>
+                <input type="checkbox" class="rounded border-dynamic bg-transparent text-primary-dynamic focus:ring-primary-dynamic w-5 h-5 cursor-pointer">
+            </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-xl flex flex-col gap-6 justify-center items-center text-center">
+            <div class="w-16 h-16 bg-primary-dynamic/10 text-primary-dynamic rounded-full flex items-center justify-center mb-2">
+                <span class="material-symbols-outlined text-3xl">api</span>
+            </div>
+            <h3 class="font-bold text-xl text-dynamic">Integration Status</h3>
+            <p class="text-sm text-dynamic-variant px-4">Super App MVP is currently connected to 4 local application monitors and 2 remote webhooks.</p>
+            <button class="px-6 py-2 bg-[var(--surface-high)] rounded-full text-dynamic border border-dynamic shadow-sm hover:shadow-md transition-shadow">Manage Integrations</button>
+        </div>
+    </div>
+</div>
