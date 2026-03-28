@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { startClient, sendReply } = require('./client');
+const { startClient, sendReply, restartClient, stopClient } = require('./client');
 const { analyzeWhatsAppMessage } = require('./analyzer');
 
 const SEEN_FILE = path.join(__dirname, 'seen_messages.json');
@@ -15,7 +15,7 @@ let globalSendReply = sendReply;
  *
  * @param {Function} onMessage - Callback(msg, analysis) invoked for every classified message
  */
-async function startWhatsAppMonitor(onMessage) {
+async function startWhatsAppMonitor(onMessage, onQR) {
     // Load previously seen message IDs from disk
     if (fs.existsSync(SEEN_FILE)) {
         try {
@@ -59,7 +59,14 @@ async function startWhatsAppMonitor(onMessage) {
 
         // Fire the callback with the raw msg object AND the analysis
         onMessage(msg, finalAnalysis);
-    });
+    }, onQR);  // ← pass the QR callback into client.js
+}
+/**
+ * Restarts the WhatsApp client — destroys current session and re-initialises.
+ * Called when user clicks "Reconnect WhatsApp" in the profile view.
+ */
+async function restartWhatsAppMonitor() {
+    return await restartClient();
 }
 
 /**
@@ -69,6 +76,10 @@ async function startWhatsAppMonitor(onMessage) {
  */
 async function sendWhatsAppReply(chatId, text) {
     return await globalSendReply(chatId, text);
+}
+
+async function stopWhatsAppMonitor() {
+    return await stopClient();
 }
 
 /**
@@ -86,4 +97,4 @@ function persistSeen() {
     }
 }
 
-module.exports = { startWhatsAppMonitor, sendWhatsAppReply };
+module.exports = { startWhatsAppMonitor, sendWhatsAppReply, restartWhatsAppMonitor, stopWhatsAppMonitor };
