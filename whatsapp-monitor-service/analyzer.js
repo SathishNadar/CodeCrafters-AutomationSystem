@@ -76,19 +76,20 @@ async function analyzeWhatsAppMessage(messageBody, contactName) {
                 {
                     role: 'system',
                     content: `You are a WhatsApp message classifier for a busy developer.
-Classify each message and respond ONLY in this format:
-TASK: [brief task description or None], PRIORITY: [Low/Medium/High], SENDER: [${contactName}]
+You will be given a batch of recent messages from a single sender. Your job is to understand the FULL context of all messages combined.
+If the first messages are casual but the last is urgent, the overall classification must be URGENT.
+Respond ONLY in this format:
+TASK: [synthesize a single concise task/summary from all messages], PRIORITY: [Low/Medium/High], SENDER: [${contactName}]
 
 Classification guidelines:
-- Casual greetings, emojis, "ok", "lol", "good morning" -> PRIORITY: Low, TASK: None
-- Meeting requests, sharing links, general questions, "can we talk?" -> PRIORITY: Medium
-- Words like URGENT, ASAP, "server down", "deploy failed", "need help NOW", "not working", "critical", "production issue" -> PRIORITY: High
-- Payment requests, deadlines today, "call me right now" -> PRIORITY: High
-When in doubt, use Medium.`
+- Casual greetings ("hi", "ok", "lol") -> PRIORITY: Low, TASK: None
+- Meeting requests, sharing links, general questions -> PRIORITY: Medium
+- Words like URGENT, ASAP, "server down", "deploy failed", "need help NOW", "critical", "production issue", deadlines -> PRIORITY: High
+Always assign the HIGHEST priority found in the context.`
                 },
                 {
                     role: 'user',
-                    content: `Classify this WhatsApp message from ${contactName}: "${messageBody}"`
+                    content: `Classify this batch of messages from ${contactName}:\n\n${messageBody}`
                 }
             ],
             max_tokens: 80,
