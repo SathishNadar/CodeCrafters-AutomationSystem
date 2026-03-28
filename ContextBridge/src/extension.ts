@@ -2,97 +2,92 @@ import * as vscode from 'vscode';
 import fetch from 'node-fetch';
 import * as http from 'http';
 
+import { TypingBurstTracker } from './trackers/TypingBurstTracker';
+import { EditorSwitchMonitor } from './trackers/EditorSwitchMonitor';
+import { IdleDetector } from './trackers/IdleDetector';
+import { DiagnosticsMonitor } from './trackers/DiagnosticsMonitor';
+import { FocusStateEngine } from './trackers/FocusStateEngine';
+
 const EVENT_ENDPOINT = 'http://localhost:3000/event';
 const NOTIFY_PORT = 3100;
 
-interface ActivityEvent {
-    source: "vscode";
+// Exported so tracker files can import the type
+export interface ActivityEvent {
+    source: 'vscode';
     event: string;
     file?: string;
     language?: string;
     workspace?: string;
     timestamp: string;
+    // Smart signal fields
+    duration_seconds?: number;
+    char_count?: number;
+    switch_count?: number;
+    error_count?: number;
+    warning_count?: number;
+    from_state?: string;
+    to_state?: string;
+    focus_minutes?: number;
+    saves?: number;
+    commits?: number;
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    const outputChannel = vscode.window.createOutputChannel("ContextBridge");
-    outputChannel.appendLine("ContextBridge extension activated.");
+    const outputChannel = vscode.window.createOutputChannel('ContextBridge');
+    outputChannel.appendLine('ContextBridge v2 activated — Smart Signal Mode.');
 
     const eventSender = new EventSender(outputChannel);
-    const eventTracker = new EventTracker(eventSender);
+    const focusEngine = new FocusStateEngine(eventSender, outputChannel);
 
-    // Track workspace initialized
-    const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name || "Unknown";
-    eventTracker.trackEvent("workspace_opened", undefined, undefined, workspaceName);
+    // Intercept all outgoing events so FocusStateEngine can observe them
+    const wrappedSender: EventSender = {
+        queueEvent: (event: ActivityEvent) => {
+            focusEngine.ingestEvent(event);
+            eventSender.queueEvent(event);
+        }
+    } as any;
 
-    // Track active editor changed
-    context.subscriptions.push(
-        vscode.window.onDidChangeActiveTextEditor(editor => {
-            if (editor) {
-                eventTracker.trackEvent(
-                    "active_editor_changed",
-                    editor.document.fileName,
-                    editor.document.languageId,
-                    vscode.workspace.getWorkspaceFolder(editor.document.uri)?.name
-                );
-            }
-        })
-    );
+    // --- Smart Tracker Initialization ---
+    new TypingBurstTracker(wrappedSender, context);
+    new EditorSwitchMonitor(wrappedSender, context);
+    new IdleDetector(wrappedSender, context);
+    new DiagnosticsMonitor(wrappedSender, context);
 
-    // Track typing with simple debounce
-    let typingDebounceTimer: NodeJS.Timeout | null = null;
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(e => {
-            if (typingDebounceTimer) {
-                clearTimeout(typingDebounceTimer);
-            }
-            typingDebounceTimer = setTimeout(() => {
-                eventTracker.trackEvent(
-                    "typing_activity",
-                    e.document.fileName,
-                    e.document.languageId,
-                    vscode.workspace.getWorkspaceFolder(e.document.uri)?.name
-                );
-            }, 1000); // 1 second debounce
-        })
-    );
+    // --- Session Started ---
+    const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name ?? 'Unknown';
+    eventSender.queueEvent({
+        source: 'vscode',
+        event: 'session_started',
+        workspace: workspaceName,
+        timestamp: new Date().toISOString()
+    });
 
-    // Track file saved
+    // --- File Saved (kept — high value) ---
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(doc => {
-            eventTracker.trackEvent(
-                "file_saved",
-                doc.fileName,
-                doc.languageId,
-                vscode.workspace.getWorkspaceFolder(doc.uri)?.name
-            );
+            const event: ActivityEvent = {
+                source: 'vscode',
+                event: 'file_saved',
+                file: doc.fileName,
+                language: doc.languageId,
+                workspace: vscode.workspace.getWorkspaceFolder(doc.uri)?.name,
+                timestamp: new Date().toISOString()
+            };
+            wrappedSender.queueEvent(event);
         })
     );
 
-    // Track debugging
+    // --- Debugging (kept — high value) ---
     context.subscriptions.push(
         vscode.debug.onDidStartDebugSession(() => {
-            eventTracker.trackEvent("debugging_started");
+            wrappedSender.queueEvent({ source: 'vscode', event: 'debugging_started', timestamp: new Date().toISOString() });
         }),
         vscode.debug.onDidTerminateDebugSession(() => {
-            eventTracker.trackEvent("debugging_stopped");
+            wrappedSender.queueEvent({ source: 'vscode', event: 'debugging_stopped', timestamp: new Date().toISOString() });
         })
     );
 
-    // Track terminal
-    context.subscriptions.push(
-        vscode.window.onDidOpenTerminal(() => {
-            eventTracker.trackEvent("terminal_opened");
-        })
-    );
-
-    // Heartbeat
-    const heartbeatTimer = setInterval(() => {
-        eventTracker.trackEvent("session_heartbeat");
-    }, 60000);
-    context.subscriptions.push({ dispose: () => clearInterval(heartbeatTimer) });
-
-    // Git tracking (Optional, best effort)
+    // --- Git Commits (kept — best signal) ---
     const gitExtension = vscode.extensions.getExtension<any>('vscode.git');
     if (gitExtension) {
         gitExtension.activate().then(api => {
@@ -102,38 +97,31 @@ export function activate(context: vscode.ExtensionContext) {
             const setupRepo = (repo: any) => {
                 context.subscriptions.push(
                     repo.repository.onDidCommit(() => {
-                        eventTracker.trackEvent("git_commit_detected");
+                        wrappedSender.queueEvent({ source: 'vscode', event: 'git_commit_detected', timestamp: new Date().toISOString() });
                     })
                 );
             };
 
-            // Handle current repositories
             gitApi.repositories.forEach(setupRepo);
-
-            // Handle future repositories
-            context.subscriptions.push(
-                gitApi.onDidOpenRepository(setupRepo)
-            );
+            context.subscriptions.push(gitApi.onDidOpenRepository(setupRepo));
         }, (err: any) => {
             outputChannel.appendLine(`Git tracking error: ${err.message}`);
         });
     }
 
-    // Ping command for manual testing
+    // --- Ping Command ---
     context.subscriptions.push(
         vscode.commands.registerCommand('contextBridge.ping', () => {
-             eventTracker.trackEvent("ping");
-             vscode.window.showInformationMessage("Pinged ContextBridge EventServer.");
+            wrappedSender.queueEvent({ source: 'vscode', event: 'ping', timestamp: new Date().toISOString() });
+            vscode.window.showInformationMessage('ContextBridge: Ping sent to dashboard.');
         })
     );
 
-    // Local Http Server for notifications (`/notify`)
+    // --- Local Notify Server (Port 3100) ---
     const server = http.createServer((req, res) => {
         if (req.method === 'POST' && req.url === '/notify') {
             let body = '';
-            req.on('data', chunk => {
-                body += chunk.toString();
-            });
+            req.on('data', chunk => { body += chunk.toString(); });
             req.on('end', () => {
                 try {
                     const payload = JSON.parse(body);
@@ -142,53 +130,33 @@ export function activate(context: vscode.ExtensionContext) {
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ success: true }));
                     } else {
-                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.writeHead(400);
                         res.end(JSON.stringify({ error: 'Missing message field' }));
                     }
-                } catch (e) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+                } catch {
+                    res.writeHead(400);
+                    res.end(JSON.stringify({ error: 'Invalid JSON' }));
                 }
             });
         } else {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.writeHead(404);
             res.end('Not Found');
         }
     });
 
     server.listen(NOTIFY_PORT, '127.0.0.1', () => {
-        outputChannel.appendLine(`Notification listener started on http://localhost:${NOTIFY_PORT}/notify`);
+        outputChannel.appendLine(`Notify listener ready on http://localhost:${NOTIFY_PORT}/notify`);
     });
 
-    context.subscriptions.push({
-        dispose: () => {
-            server.close();
-        }
-    });
+    context.subscriptions.push({ dispose: () => server.close() });
 }
 
 export function deactivate() {}
 
-class EventTracker {
-    constructor(private sender: EventSender) {}
-
-    trackEvent(eventName: string, file?: string, language?: string, workspace?: string) {
-        const payload: ActivityEvent = {
-            source: "vscode",
-            event: eventName,
-            timestamp: new Date().toISOString()
-        };
-        if (file) payload.file = file;
-        if (language) payload.language = language;
-        if (workspace) payload.workspace = workspace;
-
-        this.sender.queueEvent(payload);
-    }
-}
-
-class EventSender {
+// --- EventSender with retry queue ---
+export class EventSender {
     private queue: ActivityEvent[] = [];
-    private sending: boolean = false;
+    private sending = false;
 
     constructor(private outputChannel: vscode.OutputChannel) {}
 
@@ -201,39 +169,31 @@ class EventSender {
         if (this.sending || this.queue.length === 0) return;
         this.sending = true;
 
-        const event = this.queue[0]; // Peek at the front
-        
+        const event = this.queue[0];
+
         try {
             const res = await fetch(EVENT_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(event),
-                timeout: 5000 // node-fetch v2 supports timeout in options
+                timeout: 5000
             });
 
             if (res.ok) {
-                // Success, remove from queue
                 this.queue.shift();
                 this.outputChannel.appendLine(`[SENT] ${event.event} at ${event.timestamp}`);
-                
-                // If more left, process next immediately
                 this.sending = false;
-                if (this.queue.length > 0) {
-                    setImmediate(() => this.processQueue());
-                }
+                if (this.queue.length > 0) setImmediate(() => this.processQueue());
                 return;
             } else {
-                throw new Error(`Server returned ${res.status}`);
+                throw new Error(`HTTP ${res.status}`);
             }
         } catch (error: any) {
-            this.outputChannel.appendLine(`[FAILED] Failed to send ${event.event}: ${error.message}. Retrying in 5 seconds...`);
-            // Wait 5 seconds before allowing another attempt
+            this.outputChannel.appendLine(`[FAILED] ${event.event}: ${error.message}. Retrying in 5s...`);
             setTimeout(() => {
                 this.sending = false;
                 this.processQueue();
             }, 5000);
-        } finally {
-            // No-op, handled above to control timing
         }
     }
 }
