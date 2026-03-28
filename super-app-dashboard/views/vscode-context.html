@@ -39,6 +39,10 @@
                         <p class="panel-kicker">Current File Context</p>
                         <h3 class="panel-title">Where attention is pointed</h3>
                     </div>
+                    <div class="context-filter-row">
+                        <button id="vc-filter-live" class="context-filter-btn active">Live</button>
+                        <button id="vc-filter-last-working" class="context-filter-btn">Last Working</button>
+                    </div>
                 </div>
 
                 <div class="context-grid">
@@ -57,6 +61,14 @@
                     <div class="context-card">
                         <span class="metric-label">Event Summary</span>
                         <div id="vc-summary" class="context-value">No event summary available yet.</div>
+                    </div>
+                    <div class="context-card">
+                        <span class="metric-label">Data Source</span>
+                        <div id="vc-source" class="context-value">Live ContextBridge stream</div>
+                    </div>
+                    <div class="context-card">
+                        <span class="metric-label">Saved Date</span>
+                        <div id="vc-date-key" class="context-value">Current session</div>
                     </div>
                 </div>
             </article>

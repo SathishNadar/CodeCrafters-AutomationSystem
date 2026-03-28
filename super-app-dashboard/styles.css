@@ -39,6 +39,26 @@
     --shadow-crisp: 0 14px 30px rgba(0, 0, 0, 0.22);
 }
 
+.theme-starfield {
+    --bg-col: #06080d;
+    --surface-col: rgba(12, 16, 24, 0.88);
+    --surface-low: rgba(15, 20, 31, 0.84);
+    --surface-high: #121a28;
+    --surface-lowest: #090d14;
+    --on-surface-col: #f7fbff;
+    --on-surface-variant: #93a4bd;
+    --primary-col: #67e8f9;
+    --primary-container: #00ddff;
+    --secondary-col: #8ab4ff;
+    --outline-var: rgba(126, 171, 230, 0.18);
+    --glass-bg: rgba(10, 14, 22, 0.72);
+    --glass-border: rgba(133, 182, 255, 0.16);
+    --nav-active-bg: linear-gradient(135deg, rgba(15, 31, 52, 0.96) 0%, rgba(17, 58, 92, 0.94) 48%, rgba(0, 156, 214, 0.9) 100%);
+    --nav-active-text: #f8feff;
+    --shadow-soft: 0 30px 80px rgba(0, 0, 0, 0.52);
+    --shadow-crisp: 0 16px 36px rgba(0, 0, 0, 0.34);
+}
+
 * {
     box-sizing: border-box;
 }
@@ -74,6 +94,93 @@ body {
         radial-gradient(circle at 85% 14%, rgba(182, 80, 45, 0.12), transparent 22%),
         radial-gradient(circle at 72% 78%, rgba(60, 198, 183, 0.1), transparent 18%);
     filter: blur(8px);
+}
+
+.app-backdrop::before,
+.app-backdrop::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+.theme-starfield body {
+    background:
+        radial-gradient(circle at 20% 18%, rgba(78, 120, 255, 0.12), transparent 18%),
+        radial-gradient(circle at 72% 24%, rgba(0, 221, 255, 0.08), transparent 20%),
+        radial-gradient(circle at 52% 82%, rgba(91, 46, 164, 0.12), transparent 24%),
+        linear-gradient(180deg, #04060b 0%, #070b12 38%, #04070d 100%);
+}
+
+.theme-starfield .app-backdrop {
+    background:
+        radial-gradient(circle at 16% 12%, rgba(88, 122, 255, 0.18), transparent 15%),
+        radial-gradient(circle at 82% 18%, rgba(0, 208, 255, 0.12), transparent 16%),
+        radial-gradient(circle at 50% 78%, rgba(111, 56, 183, 0.14), transparent 22%);
+    filter: none;
+}
+
+.theme-starfield .app-backdrop::before {
+    opacity: 1;
+    background-image:
+        radial-gradient(circle at 3% 12%, rgba(255,255,255,0.95) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 8% 68%, rgba(255,255,255,0.82) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 12% 32%, rgba(116, 198, 255, 0.75) 0 1.2px, transparent 2px),
+        radial-gradient(circle at 18% 80%, rgba(255,255,255,0.8) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 24% 24%, rgba(255,255,255,0.95) 0 1.2px, transparent 2px),
+        radial-gradient(circle at 29% 55%, rgba(126, 192, 255, 0.72) 0 1px, transparent 2px),
+        radial-gradient(circle at 34% 14%, rgba(255,255,255,0.82) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 39% 72%, rgba(255,255,255,0.92) 0 1.1px, transparent 2px),
+        radial-gradient(circle at 45% 35%, rgba(126, 192, 255, 0.75) 0 1.2px, transparent 2px),
+        radial-gradient(circle at 51% 18%, rgba(255,255,255,0.88) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 58% 64%, rgba(255,255,255,0.84) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 63% 28%, rgba(111, 214, 255, 0.74) 0 1.2px, transparent 2px),
+        radial-gradient(circle at 69% 82%, rgba(255,255,255,0.92) 0 1.2px, transparent 2px),
+        radial-gradient(circle at 74% 44%, rgba(255,255,255,0.8) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 81% 11%, rgba(255,255,255,0.98) 0 1.4px, transparent 2.4px),
+        radial-gradient(circle at 87% 62%, rgba(126, 192, 255, 0.75) 0 1.1px, transparent 2px),
+        radial-gradient(circle at 92% 26%, rgba(255,255,255,0.9) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 96% 74%, rgba(255,255,255,0.84) 0 1px, transparent 1.8px);
+    animation: starTwinkle 9s ease-in-out infinite alternate;
+}
+
+.theme-starfield .app-backdrop::after {
+    opacity: 1;
+    background:
+        radial-gradient(circle at 22% 30%, rgba(116, 108, 255, 0.12), transparent 12%),
+        radial-gradient(circle at 74% 24%, rgba(0, 221, 255, 0.08), transparent 14%),
+        radial-gradient(circle at 60% 74%, rgba(145, 86, 255, 0.08), transparent 18%),
+        radial-gradient(circle at 46% 50%, rgba(255,255,255,0.08), transparent 22%);
+    filter: blur(28px);
+    animation: nebulaDrift 22s linear infinite alternate;
+}
+
+@keyframes starTwinkle {
+    0% {
+        opacity: 0.55;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+        opacity: 0.85;
+        transform: translate3d(-0.4%, 0.3%, 0) scale(1.01);
+    }
+    100% {
+        opacity: 0.65;
+        transform: translate3d(0.5%, -0.2%, 0) scale(1.015);
+    }
+}
+
+@keyframes nebulaDrift {
+    0% {
+        transform: translate3d(-1%, 0, 0) scale(1);
+        opacity: 0.55;
+    }
+    100% {
+        transform: translate3d(1.5%, -1%, 0) scale(1.05);
+        opacity: 0.82;
+    }
 }
 
 .app-frame {
@@ -120,6 +227,23 @@ body {
     inset: 0;
     pointer-events: none;
     background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent 22%);
+}
+
+.theme-starfield .app-sidebar,
+.theme-starfield .app-main,
+.theme-starfield .topbar,
+.theme-starfield .dashboard-panel,
+.theme-starfield .hero-surface,
+.theme-starfield .command-card,
+.theme-starfield .theme-switcher,
+.theme-starfield .search-shell,
+.theme-starfield .operator-card,
+.theme-starfield .hero-stat-card,
+.theme-starfield .glass-panel,
+.theme-starfield .auth-panel {
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012)), rgba(7, 11, 18, 0.78);
+    border-color: rgba(123, 171, 236, 0.16);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.035);
 }
 
 .brand-block {
@@ -193,6 +317,15 @@ body {
     color: var(--nav-active-text);
     font-weight: 700;
     box-shadow: 0 18px 34px rgba(31, 111, 235, 0.22);
+}
+
+.theme-starfield .nav-btn:hover {
+    background: rgba(103, 232, 249, 0.07);
+    border-color: rgba(103, 232, 249, 0.16);
+}
+
+.theme-starfield .nav-btn.active {
+    box-shadow: 0 18px 44px rgba(0, 156, 214, 0.2);
 }
 
 .sidebar-footer {
@@ -756,10 +889,46 @@ body {
         linear-gradient(135deg, #f5efe4, #ebd0b8);
 }
 
+.theme-preview-starfield {
+    background:
+        radial-gradient(circle at 16% 28%, rgba(255,255,255,0.95), transparent 3%),
+        radial-gradient(circle at 72% 24%, rgba(103, 232, 249, 0.4), transparent 14%),
+        radial-gradient(circle at 54% 76%, rgba(110, 72, 200, 0.22), transparent 18%),
+        linear-gradient(135deg, #04070d, #111b2c 55%, #0a3652);
+}
+
 .context-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+}
+
+.context-filter-row {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.context-filter-btn {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--outline-var);
+    background: rgba(255,255,255,0.04);
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    font-weight: 800;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.context-filter-btn.active {
+    background: var(--nav-active-bg);
+    color: var(--nav-active-text);
+    border-color: transparent;
+}
+
+.context-filter-btn:hover {
+    transform: translateY(-1px);
 }
 
 .context-card {
@@ -821,6 +990,36 @@ body {
 .glass-panel:hover {
     transform: translateY(-1px);
 }
+
+.inbox-tab-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--on-surface-variant);
+    box-shadow: none;
+}
+
+.inbox-tab-btn.active {
+    background: var(--nav-active-bg);
+    color: var(--nav-active-text);
+    border-color: transparent;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.inbox-tab-btn:not(.active):hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--on-surface-col);
+    border-color: var(--outline-var);
+}
+
+.priority-high    { background: rgba(239,68,68,0.1);  border-color: #ef4444; }
+.priority-medium  { background: rgba(234,179,8,0.1);  border-color: #eab308; }
+.priority-low     { background: rgba(59,130,246,0.1); border-color: #3b82f6; }
+.priority-dot-high   { background: #ef4444; }
+.priority-dot-medium { background: #eab308; }
+.priority-dot-low    { background: #3b82f6; }
+.priority-text-high   { color: #ef4444; }
+.priority-text-medium { color: #eab308; }
+.priority-text-low    { color: #3b82f6; }
 
 .view-section {
     opacity: 0;

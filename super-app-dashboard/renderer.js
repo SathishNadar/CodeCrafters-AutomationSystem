@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const THEMES = {
         'theme-nocturne': { label: 'Theme: Nocturne', icon: 'dark_mode' },
         'theme-solstice': { label: 'Theme: Solstice', icon: 'light_mode' },
+        'theme-starfield': { label: 'Theme: Star', icon: 'auto_awesome' },
     };
 
     let latestVsCodePayload = null;
@@ -15,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let vscodeEventHistory = [];
     let currentUser = null;
     let pendingProtectedTarget = null;
-
+    let vscodeContextMode = 'live';
+    let lastWorkingContext = null;
     function formatEventTitle(value) {
         return (value || 'unknown_event')
             .split('_')
@@ -36,6 +38,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function formatDisplayName(user) {
+        const rawName = (user?.displayName || user?.name || '').trim();
+        if (rawName && !rawName.includes('@')) return rawName;
+
+        const email = (user?.email || '').trim();
+        if (!email) return 'Google User';
+
+        const localPart = email.split('@')[0] || '';
+        const cleaned = localPart
+            .replace(/[._-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!cleaned) return 'Google User';
+
+        return cleaned
+            .split(' ')
+            .filter(Boolean)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }
+
+    function finishUserLogin(user) {
+        storeUser({
+            name: formatDisplayName(user),
+            email: user.email || '',
+            picture: user.picture || '',
+            mode: 'user'
+        });
+        closeAuthOverlay();
+
+        if (pendingProtectedTarget) {
+            const btn = [...navButtons].find(b => b.getAttribute('data-target') === pendingProtectedTarget);
+            if (btn) loadProtectedView(pendingProtectedTarget, btn);
+            pendingProtectedTarget = null;
+        }
+    }
+
     function applyTheme(themeName) {
         const safeTheme = THEMES[themeName] ? themeName : 'theme-nocturne';
         Object.keys(THEMES).forEach(name => htmlEl.classList.remove(name));
@@ -51,8 +91,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function cycleTheme() {
-        const currentTheme = Object.keys(THEMES).find(name => htmlEl.classList.contains(name)) || 'theme-nocturne';
-        const nextTheme = currentTheme === 'theme-nocturne' ? 'theme-solstice' : 'theme-nocturne';
+        const themeNames = Object.keys(THEMES);
+        const currentTheme = themeNames.find(name => htmlEl.classList.contains(name)) || 'theme-nocturne';
+        const currentIndex = themeNames.indexOf(currentTheme);
+        const nextTheme = themeNames[(currentIndex + 1) % themeNames.length];
         applyTheme(nextTheme);
     }
 
@@ -67,12 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const authTitle = document.getElementById('auth-title');
     const authSubtitle = document.getElementById('auth-subtitle');
     const guestEntryBtn = document.getElementById('guest-entry-btn');
-    const showLoginBtn = document.getElementById('show-login-btn');
-    const authBackBtn = document.getElementById('auth-back-btn');
-    const loginForm = document.getElementById('login-form');
-    const loginNameInput = document.getElementById('login-name');
-    const loginEmailInput = document.getElementById('login-email');
-    const authChoiceActions = document.getElementById('auth-choice-actions');
+    const googleLoginBtn = document.getElementById('google-login-btn');
 
     applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'theme-nocturne');
     themeBtn.addEventListener('click', cycleTheme);
@@ -88,24 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const avatarBg = safeUser.mode === 'guest' ? '64748b' : '1f6feb';
         operatorNameEl.textContent = safeUser.name || 'Guest';
         operatorStatusEl.textContent = safeUser.mode === 'guest' ? 'Guest session' : (safeUser.email || 'Logged in');
-        operatorAvatarEl.src = `https://ui-avatars.com/api/?name=${avatarName}&background=${avatarBg}&color=fff`;
+        operatorAvatarEl.src = safeUser.picture || `https://ui-avatars.com/api/?name=${avatarName}&background=${avatarBg}&color=fff`;
         topbarLoginBtn.classList.toggle('hidden', safeUser.mode !== 'guest');
     }
 
-    function setAuthMode(mode) {
-        const isLogin = mode === 'login';
-        authTitle.textContent = isLogin ? 'Login to unlock services' : 'Choose how to enter';
-        authSubtitle.textContent = isLogin
-            ? 'Enter your details to access inbox, rules, VS Code context, session history, and the connected services.'
-            : 'Continue as a guest to explore the dashboard, or log in to unlock inbox, rules, history, and live services.';
-        authChoiceActions.classList.toggle('hidden', isLogin);
-        loginForm.classList.toggle('hidden', !isLogin);
-        if (isLogin) setTimeout(() => loginNameInput?.focus(), 50);
-    }
-
-    function openAuthOverlay(mode = 'choice') {
+    function openAuthOverlay() {
+        authTitle.textContent = 'Choose how to enter';
+        authSubtitle.textContent = 'Continue as a guest to explore the dashboard, or use Google login to unlock inbox, rules, history, and live services.';
         authOverlay.classList.remove('hidden');
-        setAuthMode(mode);
     }
 
     function closeAuthOverlay() {
@@ -129,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     currentUser = { name: 'Guest', email: '', mode: 'guest' };
     updateOperatorCard();
-    openAuthOverlay('choice');
+    openAuthOverlay();
 
     guestEntryBtn?.addEventListener('click', () => {
         storeUser({ name: 'Guest', email: '', mode: 'guest' });
@@ -137,24 +164,25 @@ document.addEventListener('DOMContentLoaded', () => {
         closeAuthOverlay();
     });
 
-    showLoginBtn?.addEventListener('click', () => setAuthMode('login'));
-    authBackBtn?.addEventListener('click', () => setAuthMode('choice'));
-    topbarLoginBtn?.addEventListener('click', () => openAuthOverlay('login'));
+    topbarLoginBtn?.addEventListener('click', () => openAuthOverlay());
 
-    loginForm?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = loginNameInput.value.trim();
-        const email = loginEmailInput.value.trim();
-        if (!name || !email) return;
+    async function runGoogleLogin() {
+        authSubtitle.textContent = 'Opening Google sign-in...';
+        googleLoginBtn.disabled = true;
 
-        storeUser({ name, email, mode: 'user' });
-        closeAuthOverlay();
-
-        if (pendingProtectedTarget) {
-            const btn = [...navButtons].find(b => b.getAttribute('data-target') === pendingProtectedTarget);
-            if (btn) loadProtectedView(pendingProtectedTarget, btn);
-            pendingProtectedTarget = null;
+        try {
+            const user = await ipcRenderer.invoke('google-login');
+            finishUserLogin(user);
+        } catch (error) {
+            authSubtitle.textContent = `Google sign-in failed: ${error.message}`;
+        } finally {
+            googleLoginBtn.disabled = false;
         }
+    }
+
+    googleLoginBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        runGoogleLogin();
     });
 
     // 2. Sidebar Navigation Routing
@@ -162,18 +190,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewContainer = document.getElementById('view-container');
     const breadcrumb = document.getElementById('breadcrumb-current');
 
-    function loadView(viewName) {
-        const filePath = path.join(__dirname, 'views', `${viewName}.html`);
-        fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) {
-                console.error("Error loading view:", err);
-                viewContainer.innerHTML = '<p class="text-dynamic text-center mt-10">Error loading view component</p>';
-                return;
-            }
+    async function loadView(viewName) {
+        const renderLoadedView = (data) => {
             viewContainer.innerHTML = data;
-            // After injection, attach the event listeners that apply to this specific view
             attachViewListeners(viewName);
-        });
+        };
+
+        try {
+            const response = await fetch(`/views/${viewName}.html`, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const html = await response.text();
+            renderLoadedView(html);
+            return;
+        } catch (fetchError) {
+            console.warn(`[Renderer] HTTP view load failed for ${viewName}:`, fetchError.message);
+        }
+
+        if (typeof __dirname !== 'undefined') {
+            const filePath = path.join(__dirname, 'views', `${viewName}.html`);
+            fs.readFile(filePath, 'utf8', (err, data) => {
+                if (err) {
+                    console.error("Error loading view:", err);
+                    viewContainer.innerHTML = '<p class="text-dynamic text-center mt-10">Error loading view component</p>';
+                    return;
+                }
+                renderLoadedView(data);
+            });
+            return;
+        }
+
+        viewContainer.innerHTML = '<p class="text-dynamic text-center mt-10">Error loading view component</p>';
+    }
+
+    async function fetchLastWorkingContext() {
+        try {
+            lastWorkingContext = await ipcRenderer.invoke('get-last-working-context');
+            renderVsCodeContextView();
+        } catch (error) {
+            console.error('Failed to load last working context:', error);
+        }
     }
 
     navButtons.forEach(btn => {
@@ -183,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isProtected && isGuest()) {
                 pendingProtectedTarget = targetId;
-                openAuthOverlay('login');
+                openAuthOverlay();
                 return;
             }
 
@@ -368,6 +423,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (viewName === 'vscode-context') {
+            document.getElementById('vc-filter-live')?.addEventListener('click', () => {
+                vscodeContextMode = 'live';
+                renderVsCodeContextView();
+            });
+            document.getElementById('vc-filter-last-working')?.addEventListener('click', async () => {
+                vscodeContextMode = 'last-working';
+                await fetchLastWorkingContext();
+            });
             renderVsCodeContextView();
         }
     }
@@ -473,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
         latestCognitiveSnapshot = snap;
         vscodeEventHistory.unshift(payload);
         if (vscodeEventHistory.length > 8) vscodeEventHistory.pop();
-        renderVsCodeContextView();
+        if (vscodeContextMode === 'live') renderVsCodeContextView();
     }
 
     function summarizePayload(payload) {
@@ -489,8 +552,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const stateEl = document.getElementById('vc-state');
         if (!stateEl) return;
 
-        const snap = latestCognitiveSnapshot || analytics.getSnapshot();
-        const payload = latestVsCodePayload;
+        const useLastWorking = vscodeContextMode === 'last-working';
+        const snap = useLastWorking
+            ? (lastWorkingContext?.snapshot || latestCognitiveSnapshot || analytics.getSnapshot())
+            : (latestCognitiveSnapshot || analytics.getSnapshot());
+        const payload = useLastWorking ? lastWorkingContext?.event : latestVsCodePayload;
 
         stateEl.textContent = snap?.stateInfo?.label || 'Idle';
         document.getElementById('vc-load').textContent = snap?.cognitiveLoad ?? 0;
@@ -504,13 +570,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('vc-errors').textContent = payload?.error_count ?? 0;
         document.getElementById('vc-session-min').textContent = snap?.session?.sessionMinutes ?? 0;
         document.getElementById('vc-raw-payload').textContent = payload ? JSON.stringify(payload, null, 2) : 'No payload received yet.';
+        document.getElementById('vc-source').textContent = useLastWorking ? 'Last saved work from Firebase' : 'Live ContextBridge stream';
+        document.getElementById('vc-date-key').textContent = useLastWorking ? (lastWorkingContext?.dateKey || 'No saved session found') : 'Current session';
+        document.getElementById('vc-filter-live')?.classList.toggle('active', !useLastWorking);
+        document.getElementById('vc-filter-last-working')?.classList.toggle('active', useLastWorking);
 
         const eventList = document.getElementById('vc-event-list');
         if (eventList) {
-            if (!vscodeEventHistory.length) {
+            const items = useLastWorking ? (payload ? [payload] : []) : vscodeEventHistory;
+            if (!items.length) {
                 eventList.innerHTML = '<div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant">Waiting for VS Code activity...</div>';
             } else {
-                eventList.innerHTML = vscodeEventHistory.map(item => `
+                eventList.innerHTML = items.map(item => `
                     <div class="glass-panel rounded-2xl p-4 border-l-4 border-secondary-dynamic">
                         <div class="flex items-center justify-between gap-3">
                             <div class="font-semibold text-dynamic text-sm">${formatEventTitle(item.event)}</div>

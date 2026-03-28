@@ -4,9 +4,7 @@
  * Stores all VS Code activity events date-wise in Firestore.
  */
 
-const { initializeApp } = require('firebase/app');
 const {
-    getFirestore,
     collection,
     doc,
     addDoc,
@@ -16,23 +14,10 @@ const {
     query,
     orderBy,
     limit,
+    documentId,
     serverTimestamp,
-    Timestamp
 } = require('firebase/firestore');
-
-const firebaseConfig = {
-    apiKey: "AIzaSyBOo_2MQMu28kRXFrtcQYYc54M15_C057I",
-    authDomain: "automationsystem-atrangss.firebaseapp.com",
-    projectId: "automationsystem-atrangss",
-    storageBucket: "automationsystem-atrangss.firebasestorage.app",
-    messagingSenderId: "145891927022",
-    appId: "1:145891927022:web:c1a7de76e2e19aa2b164ff",
-    measurementId: "G-4WE31T1HN1"
-};
-
-// Initialize Firebase
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+const { db } = require('./firebase-client');
 
 // Unique device/user ID (stored on first run, reused after)
 const os = require('os');
@@ -172,10 +157,33 @@ async function getDayEvents(dateKey) {
 }
 
 /**
+ * Fetch the latest persisted VS Code event available in Firestore.
+ */
+async function getLastWorkingContext() {
+    try {
+        const datesRef = collection(db, 'sessions', DEVICE_ID);
+        const dateDocs = await getDocs(query(datesRef, orderBy(documentId(), 'desc'), limit(14)));
+
+        for (const dateDoc of dateDocs.docs) {
+            const dateKey = dateDoc.id;
+            const events = await getDayEvents(dateKey);
+            if (events.length > 0) {
+                return { dateKey, event: events[0] };
+            }
+        }
+
+        return null;
+    } catch (err) {
+        console.error('[Firestore] getLastWorkingContext error:', err.message);
+        return null;
+    }
+}
+
+/**
  * Flush final summary on app close.
  */
 async function onAppClose() {
     await flushSummary();
 }
 
-module.exports = { writeEvent, flushSummary, getDaySummary, getDayEvents, onAppClose, DEVICE_ID };
+module.exports = { writeEvent, flushSummary, getDaySummary, getDayEvents, getLastWorkingContext, onAppClose, DEVICE_ID };
