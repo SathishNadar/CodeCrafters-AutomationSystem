@@ -297,13 +297,24 @@ const { initEmailMonitor } = require('./email-monitor');
 // --- WhatsApp Monitor Initialization ---
 const { initWhatsAppMonitor } = require('./whatsapp-monitor');
 
+// --- WebExtension WebSocket Bridge (port 8080) ---
+const { initWsBridge, closeBridge } = require('./ws-bridge');
+
+// --- IPC: Browser Firestore queries from renderer ---
+const browserFs = require('./browser-firestore');
+ipcMain.handle('get-browser-day-summary', async (_, dateKey) => browserFs.getBrowserDaySummary(dateKey));
+ipcMain.handle('get-browser-day-events', async (_, dateKey) => browserFs.getBrowserDayEvents(dateKey));
+
 // --- App Lifecycle ---
 app.whenReady().then(() => {
     createWindow();
-    
+
     // Start background email monitoring
     initEmailMonitor(mainWindow);
     initWhatsAppMonitor(mainWindow);
+
+    // Start WebExtension WebSocket bridge
+    initWsBridge(mainWindow);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -312,13 +323,19 @@ app.whenReady().then(() => {
 
 
 app.on('window-all-closed', async () => {
-    // Flush final session summary before quitting
+    // Flush final session summaries before quitting
     try {
         const fs = await getFirestore();
         await fs.onAppClose();
-        console.log('[main] Final Firestore flush complete.');
+        console.log('[main] VS Code Firestore flush complete.');
     } catch (e) {
-        console.error('[main] Final flush error:', e.message);
+        console.error('[main] VS Code flush error:', e.message);
+    }
+    try {
+        await closeBridge();
+        console.log('[main] Browser Firestore flush complete.');
+    } catch (e) {
+        console.error('[main] Browser flush error:', e.message);
     }
     if (process.platform !== 'darwin') app.quit();
 });

@@ -40,6 +40,7 @@ export class FeatureExtractor {
       interactionCount,
       visible,
       host,
+      scrollDepth: Math.min(100, Math.max(0, Number(summary.scrollDepth) || 0)),
       breakdown: {
         mousemove: Number(summary?.breakdown?.mousemove) || 0,
         scroll: Number(summary?.breakdown?.scroll) || 0,
@@ -103,6 +104,7 @@ export class FeatureExtractor {
       telemetryWindow1mMs,
       telemetryWindow5mMs,
       inputModalityMix: this.#modalityMix(telemetry300),
+      avgScrollDepth: this.#avgScrollDepth(telemetry300),
       playlistActive: now < this.#playlistActiveUntil,
       bufferSize: this.#eventBuffer.length,
       telemetryBufferSize: this.#telemetryBuffer.length,
@@ -230,6 +232,13 @@ export class FeatureExtractor {
     return Math.round(
       (switchPenalty * 0.45 + dwellBonus * 0.25 + interactionBonus * 0.3) * 100
     ) / 100;
+  }
+
+  #avgScrollDepth(telemetryEvents) {
+    const events = telemetryEvents.filter((t) => t.visible && t.scrollDepth > 0);
+    if (events.length === 0) return 0;
+    const total = events.reduce((sum, t) => sum + t.scrollDepth, 0);
+    return Math.round(total / events.length);
   }
 
   #categorizeDomain(domain) {

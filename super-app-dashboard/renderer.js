@@ -433,6 +433,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             renderVsCodeContextView();
         }
+
+        if (viewName === 'browser-intelligence') {
+            biViewActive = true;
+            biRenderAll();
+            if (biRefreshTimer) clearInterval(biRefreshTimer);
+            biRefreshTimer = setInterval(biRenderAll, 5000);
+        } else {
+            biViewActive = false;
+            if (biRefreshTimer) { clearInterval(biRefreshTimer); biRefreshTimer = null; }
+        }
     }
 
     const ICON_MAP = {
@@ -1128,6 +1138,358 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+
+    // ══════════════════════════════════════════════════════════
+    // 7. Browser Intelligence (WebExtension WebSocket Bridge)
+    // ══════════════════════════════════════════════════════════
+
+    // ── In-memory state ──
+    let biConnected = false;
+    let biLatestVector = null;
+    let biLatestContext = null;
+    let biStateHistory = [];          // { state, ts, domain } — last 60 events
+    let biDomainTimeMap = {};         // { domain: { ms, category } }
+    let biDomainLastSeen = {};        // { domain: ts } — for accumulation
+    let biHourlyFocusMap = {};        // { 'HH': totalActiveFocusMs }
+    let biNotifFeed = [];             // last 20 NOTIFICATION_DECISION payloads
+    let biScrollDepthHistory = [];    // last 30 avgScrollDepth snapshots
+    let biViewActive = false;
+    let biRefreshTimer = null;
+
+    const BI_STATE_STYLES = {
+        active_focus:  { label: 'Active Focus',  icon: 'bolt',         bg: 'bg-emerald-500/10', text: 'text-emerald-400',  bar: '#10b981', timelineBg: 'bg-emerald-500' },
+        passive_focus: { label: 'Passive Focus', icon: 'visibility',   bg: 'bg-blue-500/10',    text: 'text-blue-400',    bar: '#60a5fa', timelineBg: 'bg-blue-400' },
+        distracted:    { label: 'Distracted',    icon: 'warning',      bg: 'bg-rose-500/10',    text: 'text-rose-400',    bar: '#f43f5e', timelineBg: 'bg-rose-500' },
+        idle:          { label: 'Idle',          icon: 'hourglass_top',bg: 'bg-gray-500/10',    text: 'text-gray-400',    bar: '#6b7280', timelineBg: 'bg-gray-500' },
+        transitioning: { label: 'Transitioning', icon: 'refresh',      bg: 'bg-yellow-500/10',  text: 'text-yellow-400',  bar: '#f59e0b', timelineBg: 'bg-yellow-500' },
+    };
+
+    const CATEGORY_COLORS = {
+        productivity: 'bg-indigo-500',
+        communication: 'bg-sky-500',
+        media: 'bg-rose-500',
+        social: 'bg-amber-500',
+        neutral: 'bg-slate-500',
+        unknown: 'bg-zinc-600',
+    };
+
+    // ── Helpers ──
+    function msToDuration(ms) {
+        const s = Math.round(ms / 1000);
+        if (s < 60) return `${s}s`;
+        const m = Math.round(s / 60);
+        if (m < 60) return `${m}m`;
+        return `${Math.floor(m / 60)}h ${m % 60}m`;
+    }
+
+    function formatHour(h) {
+        const ampm = h < 12 ? 'AM' : 'PM';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        return `${h12}${ampm}`;
+    }
+
+    function getWorkMode(mix) {
+        if (!mix) return '–';
+        const entries = Object.entries(mix).sort((a, b) => b[1] - a[1]);
+        const top = entries[0]?.[0];
+        const modes = { keydown: '⌨ Coding/Writing', scroll: '📖 Reading/Research', mousemove: '🖱 Browsing', click: '🔗 Navigating' };
+        return modes[top] || '–';
+    }
+
+    // ── State accumulation ──
+    function biIngestStateChange(payload) {
+        const state = payload.state?.state || payload.state;
+        const domain = payload.state?.currentDomain || payload.vector?.currentDomain || null;
+        const ts = payload.emittedAt || Date.now();
+
+        // Update state history
+        biStateHistory.push({ state, ts, domain });
+        if (biStateHistory.length > 60) biStateHistory.shift();
+
+        // Accumulate hourly focus map
+        if (state === 'active_focus') {
+            const hour = new Date(ts).getHours();
+            const key = String(hour).padStart(2, '0');
+            // Estimate ~30s per pipeline update for time credit
+            biHourlyFocusMap[key] = (biHourlyFocusMap[key] || 0) + 30000;
+        }
+
+        biLatestContext = payload.state || {};
+        if (payload.vector) biLatestVector = payload.vector;
+    }
+
+    function biIngestPipelineUpdate(payload) {
+        const vector = payload.vector || {};
+        const context = payload.contextState || {};
+        biLatestVector = vector;
+        biLatestContext = { ...biLatestContext, ...context };
+
+        // Accumulate domain time
+        const domain = vector.currentDomain;
+        if (domain && vector.timeOnCurrentDomainMs > 0) {
+            if (!biDomainTimeMap[domain]) {
+                biDomainTimeMap[domain] = { ms: 0, category: vector.domainCategory || 'neutral' };
+            }
+            // Only add delta since last seen to avoid double-counting
+            const prev = biDomainLastSeen[domain] || 0;
+            const now = Date.now();
+            if (prev > 0) {
+                const delta = Math.min(now - prev, 30000); // cap at 30s per tick
+                biDomainTimeMap[domain].ms += delta;
+            }
+            biDomainLastSeen[domain] = now;
+            biDomainTimeMap[domain].category = vector.domainCategory || biDomainTimeMap[domain].category;
+        }
+
+        // Accumulate scroll depth history
+        if (vector.avgScrollDepth !== undefined) {
+            biScrollDepthHistory.push(vector.avgScrollDepth);
+            if (biScrollDepthHistory.length > 30) biScrollDepthHistory.shift();
+        }
+    }
+
+    function biIngestNotifDecision(payload) {
+        biNotifFeed.unshift({ ...payload, receivedAt: Date.now() });
+        if (biNotifFeed.length > 20) biNotifFeed.pop();
+    }
+
+    // ── Render panels ──
+    function biRenderKpis() {
+        const v = biLatestVector || {};
+        const c = biLatestContext || {};
+
+        // Focus Score
+        const score = Math.round((v.focusScore || c.focusScore || 0) * 100);
+        const scoreEl = document.getElementById('bi-focus-score');
+        const scoreBar = document.getElementById('bi-focus-bar');
+        if (scoreEl) scoreEl.textContent = score ? `${score}%` : '–';
+        if (scoreBar) scoreBar.style.width = `${score}%`;
+
+        // State
+        const state = c.state || 'transitioning';
+        const style = BI_STATE_STYLES[state] || BI_STATE_STYLES.transitioning;
+        const stateLabel = document.getElementById('bi-state-label');
+        const stateIcon = document.getElementById('bi-state-icon');
+        const stateWrap = document.getElementById('bi-state-icon-wrap');
+        const domainEl = document.getElementById('bi-current-domain');
+        const stateAgeEl = document.getElementById('bi-state-age');
+        if (stateLabel) stateLabel.textContent = style.label;
+        if (stateIcon) { stateIcon.textContent = style.icon; stateIcon.className = `material-symbols-outlined text-lg ${style.text}`; }
+        if (stateWrap) stateWrap.className = `w-10 h-10 rounded-xl flex items-center justify-center ${style.bg}`;
+        if (domainEl) domainEl.textContent = c.currentDomain || v.currentDomain || 'No domain';
+        if (stateAgeEl) stateAgeEl.textContent = c.stateAgeMs ? `State age: ${msToDuration(c.stateAgeMs)}` : '';
+
+        // Tab switch
+        const switchEl = document.getElementById('bi-switch-rate');
+        const switch5mEl = document.getElementById('bi-switch-rate-5m');
+        const switchLabelEl = document.getElementById('bi-switch-label');
+        const rate1m = v.tabSwitchRate1m ?? '–';
+        if (switchEl) switchEl.textContent = rate1m;
+        if (switch5mEl) switch5mEl.textContent = v.tabSwitchRate5m ?? '–';
+        if (switchLabelEl) {
+            const r = Number(rate1m);
+            switchLabelEl.textContent = r >= 6 ? 'High distraction' : r >= 3 ? 'Moderate' : r > 0 ? 'Low distraction' : '–';
+        }
+    }
+
+    function biRenderTimeline() {
+        const container = document.getElementById('bi-timeline');
+        const empty = document.getElementById('bi-timeline-empty');
+        if (!container) return;
+
+        // Show last 30 events
+        const slice = biStateHistory.slice(-30);
+        if (slice.length === 0) {
+            container.innerHTML = '';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        const total = slice.length;
+        container.innerHTML = slice.map(({ state }, i) => {
+            const s = BI_STATE_STYLES[state] || BI_STATE_STYLES.transitioning;
+            const width = Math.max(2, Math.round((1 / total) * 100));
+            const title = s.label;
+            return `<div title="${title}" class="h-full ${s.timelineBg} flex-1 min-w-[4px]" style="flex-basis:${width}%"></div>`;
+        }).join('');
+
+        // Peak focus time
+        biRenderPeakFocusTime();
+    }
+
+    function biRenderPeakFocusTime() {
+        const peakEl = document.getElementById('bi-peak-focus-text');
+        const peakSub = document.getElementById('bi-peak-focus-sub');
+        if (!peakEl) return;
+
+        const entries = Object.entries(biHourlyFocusMap);
+        if (entries.length === 0) {
+            peakEl.textContent = 'Not enough data yet';
+            if (peakSub) peakSub.textContent = '';
+            return;
+        }
+
+        // Sort by total active focus ms
+        entries.sort((a, b) => b[1] - a[1]);
+        const [bestHour, bestMs] = entries[0];
+        const hour = parseInt(bestHour, 10);
+        const endHour = (hour + 1) % 24;
+
+        peakEl.textContent = `${formatHour(hour)} – ${formatHour(endHour)}`;
+        if (peakSub) peakSub.textContent = `${msToDuration(bestMs)} of active focus`;
+    }
+
+    function biRenderDomainList() {
+        const list = document.getElementById('bi-domain-list');
+        if (!list) return;
+
+        const entries = Object.entries(biDomainTimeMap)
+            .filter(([, v]) => v.ms > 2000)
+            .sort((a, b) => b[1].ms - a[1].ms)
+            .slice(0, 8);
+
+        if (entries.length === 0) {
+            list.innerHTML = '<p class="text-xs text-dynamic-variant text-center py-2">Active sites will appear here…</p>';
+            return;
+        }
+
+        const maxMs = entries[0][1].ms;
+        list.innerHTML = entries.map(([domain, { ms, category }]) => {
+            const pct = Math.round((ms / maxMs) * 100);
+            const barClass = CATEGORY_COLORS[category] || CATEGORY_COLORS.neutral;
+            return `
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-medium text-dynamic truncate max-w-[160px]" title="${domain}">${domain}</span>
+                        <span class="text-[10px] text-dynamic-variant shrink-0 ml-2">${msToDuration(ms)}</span>
+                    </div>
+                    <div class="w-full bg-[var(--surface-high)] rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full rounded-full ${barClass} transition-all duration-500" style="width:${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function biRenderModality() {
+        const mix = biLatestVector?.inputModalityMix;
+        const toEl = (id, pct) => {
+            const bar = document.getElementById(id);
+            const label = document.getElementById(`${id}-pct`);
+            if (bar) bar.style.width = `${Math.round(pct * 100)}%`;
+            if (label) label.textContent = `${Math.round(pct * 100)}%`;
+        };
+
+        if (mix) {
+            toEl('bi-mod-key', mix.keydown || 0);
+            toEl('bi-mod-mouse', mix.mousemove || 0);
+            toEl('bi-mod-scroll', mix.scroll || 0);
+            toEl('bi-mod-click', mix.click || 0);
+            const modeEl = document.getElementById('bi-work-mode-badge');
+            if (modeEl) modeEl.textContent = getWorkMode(mix);
+        }
+
+        // Scroll depth
+        const depths = biScrollDepthHistory.filter(d => d > 0);
+        const avgDepth = depths.length ? Math.round(depths.reduce((s, d) => s + d, 0) / depths.length) : 0;
+        const depthEl = document.getElementById('bi-scroll-depth');
+        const depthBar = document.getElementById('bi-scroll-depth-bar');
+        if (depthEl) depthEl.textContent = avgDepth ? `${avgDepth}%` : '–%';
+        if (depthBar) depthBar.style.width = `${avgDepth}%`;
+    }
+
+    function biRenderNotifFeed() {
+        const feed = document.getElementById('bi-notif-feed');
+        if (!feed) return;
+
+        if (biNotifFeed.length === 0) {
+            feed.innerHTML = '<p class="text-xs text-dynamic-variant text-center py-4">Notification decisions will appear here…</p>';
+            return;
+        }
+
+        const ACTION_STYLES = {
+            SHOW:     { dot: 'bg-emerald-500', label: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', text: 'SHOW' },
+            DELAY:    { dot: 'bg-amber-400',   label: 'bg-amber-500/10 text-amber-400 border-amber-500/30',     text: 'DELAY' },
+            SUPPRESS: { dot: 'bg-rose-500',    label: 'bg-rose-500/10 text-rose-400 border-rose-500/30',        text: 'SUPP' },
+        };
+
+        feed.innerHTML = biNotifFeed.map(item => {
+            const action = item.decision?.action || 'DELAY';
+            const priority = item.decision?.priority || 'MEDIUM';
+            const reason = item.decision?.reason || '';
+            const as = ACTION_STYLES[action] || ACTION_STYLES.DELAY;
+            const time = new Date(item.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="flex items-start gap-2 p-2 rounded-xl bg-[var(--surface-high)]">
+                    <span class="w-2 h-2 rounded-full ${as.dot} shrink-0 mt-1.5"></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[10px] font-bold border rounded px-1.5 py-0.5 ${as.label}">${as.text}</span>
+                            <span class="text-[10px] font-bold text-dynamic-variant uppercase">${priority}</span>
+                        </div>
+                        <p class="text-[10px] text-dynamic-variant mt-1 line-clamp-2">${reason}</p>
+                    </div>
+                    <span class="text-[9px] text-dynamic-variant shrink-0">${time}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function biRenderConnectionStatus(connected) {
+        const dot = document.getElementById('bi-status-dot');
+        const text = document.getElementById('bi-status-text');
+        if (!dot || !text) return;
+        if (connected) {
+            dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+            text.textContent = 'Extension Connected';
+            text.className = 'text-xs font-bold uppercase tracking-widest text-emerald-400';
+        } else {
+            dot.className = 'w-2 h-2 rounded-full bg-[var(--on-surface-variant)] animate-pulse';
+            text.textContent = 'Waiting for extension…';
+            text.className = 'text-xs font-bold uppercase tracking-widest text-dynamic-variant';
+        }
+    }
+
+    function biRenderAll() {
+        if (!biViewActive) return;
+        biRenderKpis();
+        biRenderTimeline();
+        biRenderDomainList();
+        biRenderModality();
+        biRenderNotifFeed();
+        biRenderConnectionStatus(biConnected);
+    }
+
+    // ── IPC receiver ──
+    ipcRenderer.on('browser-telemetry', (_, payload) => {
+        if (!payload || typeof payload !== 'object') return;
+
+        switch (payload.type) {
+            case 'EXTENSION_CONNECTED':
+                biConnected = true;
+                break;
+            case 'EXTENSION_DISCONNECTED':
+                biConnected = false;
+                break;
+            case 'STATE_CHANGE':
+            case 'STATE_SNAPSHOT':
+                biConnected = true;
+                biIngestStateChange(payload);
+                break;
+            case 'PIPELINE_UPDATE':
+                biConnected = true;
+                biIngestPipelineUpdate(payload);
+                // Also grab state from pipeline
+                if (payload.contextState?.state) biLatestContext = payload.contextState;
+                break;
+            case 'NOTIFICATION_DECISION':
+                biIngestNotifDecision(payload);
+                break;
+        }
+
+        biRenderAll();
+    });
 
     // Default Initialization
     loadView('dashboard');
