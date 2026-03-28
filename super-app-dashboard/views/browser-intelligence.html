@@ -1,0 +1,177 @@
+<!-- Browser Intelligence View -->
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-dynamic tracking-tight">Browser Intelligence</h2>
+            <p class="text-sm text-dynamic-variant mt-1">Live behavioral telemetry from your Chrome extension</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="bi-connection-status" class="flex items-center gap-2 px-4 py-2 glass-panel rounded-full">
+                <span id="bi-status-dot" class="w-2 h-2 rounded-full bg-[var(--on-surface-variant)] animate-pulse"></span>
+                <span id="bi-status-text" class="text-xs font-bold uppercase tracking-widest text-dynamic-variant">Waiting for extension…</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="grid grid-cols-3 gap-4">
+
+        <!-- Focus Score -->
+        <div class="glass-panel rounded-2xl p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant mb-1">Focus Score</p>
+                    <p id="bi-focus-score" class="text-4xl font-black text-dynamic">–</p>
+                    <p class="text-[11px] text-dynamic-variant mt-1">Composite index</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-indigo-400 text-lg">psychology</span>
+                </div>
+            </div>
+            <div class="w-full bg-[var(--surface-high)] rounded-full h-1.5 overflow-hidden">
+                <div id="bi-focus-bar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700" style="width:0%"></div>
+            </div>
+        </div>
+
+        <!-- Current Focus State -->
+        <div class="glass-panel rounded-2xl p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant mb-1">Focus State</p>
+                    <p id="bi-state-label" class="text-lg font-bold text-dynamic mt-1">–</p>
+                    <p id="bi-current-domain" class="text-[11px] text-dynamic-variant mt-1 truncate max-w-[160px]">No domain</p>
+                </div>
+                <div id="bi-state-icon-wrap" class="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--surface-high)]">
+                    <span id="bi-state-icon" class="material-symbols-outlined text-lg text-dynamic-variant">circle</span>
+                </div>
+            </div>
+            <div id="bi-state-age" class="text-[10px] text-dynamic-variant">–</div>
+        </div>
+
+        <!-- Tab Switch Rate -->
+        <div class="glass-panel rounded-2xl p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant mb-1">Tab Switches</p>
+                    <div class="flex items-baseline gap-2">
+                        <p id="bi-switch-rate" class="text-4xl font-black text-dynamic">–</p>
+                        <span class="text-sm text-dynamic-variant">/min</span>
+                    </div>
+                    <p id="bi-switch-label" class="text-[11px] text-dynamic-variant mt-1">–</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-orange-400 text-lg">tab_move</span>
+                </div>
+            </div>
+            <p class="text-[10px] text-dynamic-variant">5-min: <span id="bi-switch-rate-5m" class="font-bold">–</span></p>
+        </div>
+    </div>
+
+    <!-- Two-column middle row -->
+    <div class="grid grid-cols-5 gap-4">
+
+        <!-- Focus State Timeline (3 cols) -->
+        <div class="col-span-3 glass-panel rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-4">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant">Focus State Timeline</p>
+                <span class="text-[10px] text-dynamic-variant">Last 30 min</span>
+            </div>
+
+            <!-- Legend -->
+            <div class="flex items-center gap-4 mb-4">
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-emerald-500 shrink-0"></span><span class="text-[10px] text-dynamic-variant">Active Focus</span></div>
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-blue-400 shrink-0"></span><span class="text-[10px] text-dynamic-variant">Passive Focus</span></div>
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-rose-500 shrink-0"></span><span class="text-[10px] text-dynamic-variant">Distracted</span></div>
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-gray-500 shrink-0"></span><span class="text-[10px] text-dynamic-variant">Idle</span></div>
+            </div>
+
+            <!-- Timeline bar -->
+            <div id="bi-timeline" class="w-full h-8 flex rounded-lg overflow-hidden gap-px bg-[var(--surface-high)]">
+                <!-- filled by JS -->
+            </div>
+            <div id="bi-timeline-empty" class="text-center text-dynamic-variant text-xs py-4">Waiting for state changes…</div>
+
+            <!-- Peak Focus Insight -->
+            <div class="mt-4 pt-4 border-t border-[var(--outline-var)]">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant mb-2">Peak Focus Time Today</p>
+                <div id="bi-peak-focus" class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-emerald-400 text-lg">schedule</span>
+                    <span id="bi-peak-focus-text" class="text-sm font-bold text-dynamic">–</span>
+                    <span id="bi-peak-focus-sub" class="text-xs text-dynamic-variant"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Site Time Breakdown (2 cols) -->
+        <div class="col-span-2 glass-panel rounded-2xl p-5">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant mb-4">Site Time Breakdown</p>
+            <div id="bi-domain-list" class="space-y-3">
+                <p class="text-xs text-dynamic-variant text-center py-4">Active sites will appear here…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second two-column row -->
+    <div class="grid grid-cols-2 gap-4">
+
+        <!-- Interaction Modality -->
+        <div class="glass-panel rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-4">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant">Interaction Modality</p>
+                <div id="bi-work-mode-badge" class="px-2 py-1 rounded-full text-[10px] font-bold bg-[var(--surface-high)] text-dynamic-variant">–</div>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-[11px] text-dynamic-variant w-16 shrink-0">Keyboard</span>
+                    <div class="flex-1 bg-[var(--surface-high)] rounded-full h-2 overflow-hidden">
+                        <div id="bi-mod-key" class="h-full rounded-full bg-violet-500 transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <span id="bi-mod-key-pct" class="text-[11px] font-bold text-dynamic w-8 text-right">0%</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-[11px] text-dynamic-variant w-16 shrink-0">Mouse</span>
+                    <div class="flex-1 bg-[var(--surface-high)] rounded-full h-2 overflow-hidden">
+                        <div id="bi-mod-mouse" class="h-full rounded-full bg-sky-400 transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <span id="bi-mod-mouse-pct" class="text-[11px] font-bold text-dynamic w-8 text-right">0%</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-[11px] text-dynamic-variant w-16 shrink-0">Scroll</span>
+                    <div class="flex-1 bg-[var(--surface-high)] rounded-full h-2 overflow-hidden">
+                        <div id="bi-mod-scroll" class="h-full rounded-full bg-amber-400 transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <span id="bi-mod-scroll-pct" class="text-[11px] font-bold text-dynamic w-8 text-right">0%</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-[11px] text-dynamic-variant w-16 shrink-0">Clicks</span>
+                    <div class="flex-1 bg-[var(--surface-high)] rounded-full h-2 overflow-hidden">
+                        <div id="bi-mod-click" class="h-full rounded-full bg-rose-400 transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <span id="bi-mod-click-pct" class="text-[11px] font-bold text-dynamic w-8 text-right">0%</span>
+                </div>
+
+                <!-- Scroll Depth -->
+                <div class="pt-3 mt-2 border-t border-[var(--outline-var)]">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] text-dynamic-variant">Avg Scroll Depth</span>
+                        <span id="bi-scroll-depth" class="text-sm font-black text-dynamic">–%</span>
+                    </div>
+                    <div class="w-full bg-[var(--surface-high)] rounded-full h-2 overflow-hidden">
+                        <div id="bi-scroll-depth-bar" class="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-700" style="width:0%"></div>
+                    </div>
+                    <p class="text-[10px] text-dynamic-variant mt-1">How deeply content is read (5-min avg)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Intelligence Feed -->
+        <div class="glass-panel rounded-2xl p-5">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-dynamic-variant mb-4">Notification Intelligence</p>
+            <div id="bi-notif-feed" class="space-y-2 overflow-y-auto max-h-64">
+                <p class="text-xs text-dynamic-variant text-center py-4">Notification decisions will appear here…</p>
+            </div>
+        </div>
+    </div>
+</div>
