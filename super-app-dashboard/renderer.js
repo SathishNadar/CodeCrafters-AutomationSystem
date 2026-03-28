@@ -1019,12 +1019,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const empty = document.getElementById('inbox-wa-empty');
         if (!list) return;
 
-        const cards = whatsappHistory.map((d, i) => renderWhatsAppCard(d, i)).join('');
         Array.from(list.children).forEach(c => { if (c.id !== 'inbox-wa-empty') c.remove(); });
 
         if (whatsappHistory.length > 0) {
             if (empty) empty.style.display = 'none';
-            list.insertAdjacentHTML('beforeend', cards);
+
+            // Group by priority
+            const highMsgs = whatsappHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'High');
+            const medMsgs = whatsappHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'Medium');
+            const lowMsgs = whatsappHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'Low');
+
+            let html = '';
+            if (highMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-red-400 mb-3 mt-4 ml-1 flex items-center gap-2 border-b border-red-500/20 pb-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>High Priority</h3>';
+                html += highMsgs.map(x => renderWhatsAppCard(x.d, x.i)).join('');
+            }
+            if (medMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-yellow-500 mb-3 mt-6 ml-1 flex items-center gap-2 border-b border-yellow-500/20 pb-2">Medium Priority</h3>';
+                html += medMsgs.map(x => renderWhatsAppCard(x.d, x.i)).join('');
+            }
+            if (lowMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-dynamic-variant opacity-70 mb-3 mt-6 ml-1 flex items-center gap-2 border-b border-[var(--outline-var)] pb-2">Low Priority</h3>';
+                html += lowMsgs.map(x => renderWhatsAppCard(x.d, x.i)).join('');
+            }
+
+            list.insertAdjacentHTML('beforeend', html);
+            
             list.querySelectorAll('.wa-reply-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(e.currentTarget.getAttribute('data-wa-index'));
@@ -1044,12 +1064,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const empty = document.getElementById('inbox-email-empty');
         if (!list) return;
 
-        const cards = notificationsHistory.map((d, i) => renderInboxEmailCard(d, i)).join('');
         Array.from(list.children).forEach(c => { if (c.id !== 'inbox-email-empty') c.remove(); });
 
         if (notificationsHistory.length > 0) {
             if (empty) empty.style.display = 'none';
-            list.insertAdjacentHTML('beforeend', cards);
+
+            // Group by priority
+            const urgentMsgs = notificationsHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'Urgent');
+            const highMsgs = notificationsHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'High');
+            const medMsgs = notificationsHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'Medium');
+            const lowMsgs = notificationsHistory.map((d, i) => ({d, i})).filter(x => x.d.analysis.priority === 'Low');
+
+            let html = '';
+            if (urgentMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-red-500 mb-3 mt-4 ml-1 flex items-center gap-2 border-b border-red-500/20 pb-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>Urgent Priority</h3>';
+                html += urgentMsgs.map(x => renderInboxEmailCard(x.d, x.i)).join('');
+            }
+            if (highMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-orange-400 mb-3 mt-6 ml-1 flex items-center gap-2 border-b border-orange-500/20 pb-2"><span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>High Priority</h3>';
+                html += highMsgs.map(x => renderInboxEmailCard(x.d, x.i)).join('');
+            }
+            if (medMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-yellow-500 mb-3 mt-6 ml-1 flex items-center gap-2 border-b border-yellow-500/20 pb-2">Medium Priority</h3>';
+                html += medMsgs.map(x => renderInboxEmailCard(x.d, x.i)).join('');
+            }
+            if (lowMsgs.length > 0) {
+                html += '<h3 class="text-xs font-bold uppercase text-dynamic-variant opacity-70 mb-3 mt-6 ml-1 flex items-center gap-2 border-b border-[var(--outline-var)] pb-2">Low Priority</h3>';
+                html += lowMsgs.map(x => renderInboxEmailCard(x.d, x.i)).join('');
+            }
+
+            list.insertAdjacentHTML('beforeend', html);
+
             list.querySelectorAll('.inbox-email-reply-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(e.currentTarget.getAttribute('data-inbox-email-index'));
@@ -1219,14 +1264,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
-            // Sync email button
+            // Sync Inbox button
             const syncBtn = document.getElementById('inbox-sync-btn');
             if (syncBtn) {
                 syncBtn.addEventListener('click', async () => {
                     const orig = syncBtn.innerHTML;
                     syncBtn.innerHTML = `<span class="material-symbols-outlined text-[14px] animate-spin">sync</span> Syncing...`;
                     syncBtn.classList.add('opacity-70', 'pointer-events-none');
-                    try { await ipcRenderer.invoke('force-email-sync'); await new Promise(r => setTimeout(r, 1000)); }
+                    try { 
+                        // Force email poll; WhatsApp is push-based so we just re-render
+                        await ipcRenderer.invoke('force-email-sync'); 
+                        await new Promise(r => setTimeout(r, 1000)); 
+                        updateInboxEmailTab();
+                        updateInboxWaTab();
+                        updateInboxBadges();
+                    }
                     catch (e) { console.error(e); }
                     finally { syncBtn.innerHTML = orig; syncBtn.classList.remove('opacity-70', 'pointer-events-none'); }
                 });
