@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Neon Observatory | AI Context Engine</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="styles.css" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "bg": "var(--bg-col)",
+                        "surface": "var(--surface-col)",
+                        "surface-low": "var(--surface-low)",
+                        "surface-lowest": "var(--surface-lowest)",
+                        "surface-high": "var(--surface-high)",
+                        "on-surface": "var(--on-surface-col)",
+                        "on-surface-variant": "var(--on-surface-variant)",
+                        "primary": "var(--primary-col)",
+                        "primary-container": "var(--primary-container)",
+                        "secondary": "var(--secondary-col)",
+                        "outline-variant": "var(--outline-var)"
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="antialiased overflow-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-[var(--outline-var)] bg-[var(--surface-low)]/80 backdrop-blur-3xl flex flex-col p-6 z-50 transition-colors">
+    <div class="mb-10 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+            <span class="material-symbols-outlined text-white text-lg">settings_suggest</span>
+        </div>
+        <div>
+            <h1 class="text-xl font-bold tracking-tighter text-dynamic leading-none">Neon Observatory</h1>
+            <p class="text-[10px] text-primary-dynamic font-medium tracking-widest uppercase mt-1">AI Context Layer</p>
+        </div>
+    </div>
+    
+    <nav class="flex-1 space-y-2">
+        <button data-target="dashboard" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <span class="material-symbols-outlined">dashboard</span> <span class="text-sm">Dashboard</span>
+        </button>
+        <button data-target="rules" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <span class="material-symbols-outlined">rule</span> <span class="text-sm">Context Rules</span>
+        </button>
+        <button data-target="notifications" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <span class="material-symbols-outlined">notifications</span> <span class="text-sm">Notifications</span>
+        </button>
+        <button data-target="settings" class="nav-btn text-dynamic-variant hover:bg-[var(--surface-high)] w-full flex items-center gap-3 px-4 py-3 rounded-full transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <span class="material-symbols-outlined">settings</span> <span class="text-sm">Settings</span>
+        </button>
+    </nav>
+    
+    <div class="mt-auto space-y-4">
+        <button id="theme-btn" class="w-full flex items-center justify-between px-4 py-3 bg-[var(--surface-high)] rounded-2xl border border-[var(--outline-var)] text-xs font-medium text-dynamic-variant hover:opacity-80 transition-colors">
+            <span>Theme: Dark</span>
+            <span class="material-symbols-outlined text-sm">dark_mode</span>
+        </button>
+    </div>
+</aside>
+
+<!-- Main Canvas -->
+<main class="ml-64 min-h-screen flex flex-col relative bg-dynamic transition-colors">
+    <!-- TopNavBar -->
+    <header class="fixed top-0 right-0 left-64 h-16 bg-dynamic/60 backdrop-blur-2xl border-b border-[var(--outline-var)] flex justify-between items-center px-8 z-40 transition-colors">
+        <div class="flex items-center gap-2">
+            <span id="breadcrumb-parent" class="text-sm font-medium uppercase tracking-widest text-dynamic-variant">View</span>
+            <span class="material-symbols-outlined text-dynamic-variant text-sm">chevron_right</span>
+            <span id="breadcrumb-current" class="text-sm font-bold uppercase tracking-widest text-secondary-dynamic">Dashboard</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="relative hidden lg:block">
+                <input class="bg-[var(--surface-lowest)] border-none rounded-full px-5 py-1.5 text-xs w-64 text-dynamic focus:ring-1 focus:ring-primary-dynamic transition-all placeholder:text-[var(--on-surface-variant)]" placeholder="Search context..." type="text"/>
+                <span class="material-symbols-outlined absolute right-3 top-1.5 text-[var(--on-surface-variant)] text-sm">search</span>
+            </div>
+            <div class="w-8 h-8 rounded-full overflow-hidden border border-[var(--primary-col)]">
+                <img src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="User">
+            </div>
+        </div>
+    </header>
+
+    <!-- VIEWS CONTAINER -->
+    <section id="view-container" class="mt-16 p-8 flex-1 overflow-y-auto space-y-8 pb-20">
+        <!-- Views will be injected here by renderer.js -->
+    </section>
+</main>
+<script src="renderer.js"></script>
+</body>
+</html>
