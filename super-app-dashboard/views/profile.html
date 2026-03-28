@@ -1,0 +1,108 @@
+<div class="p-8 max-w-4xl mx-auto h-full overflow-y-auto w-full pb-32">
+    <div>
+        <h2 class="text-3xl font-bold text-dynamic flex items-center gap-3">
+            <span class="material-symbols-outlined text-4xl text-primary-dynamic">account_circle</span>
+            Operator Profile
+        </h2>
+        <p class="text-dynamic-variant mt-2 text-sm leading-relaxed max-w-2xl">
+            Manage your personal context, connected services, and attention priorities.
+            VIP Contacts bypass the AI filters and immediately ping you as High Priority.
+        </p>
+    </div>
+
+    <!-- Personal Config -->
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold text-dynamic mb-4">Identity</h3>
+        <div class="glass-panel p-6 rounded-3xl space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-dynamic-variant uppercase tracking-wider mb-2">Display Name</label>
+                    <input type="text" id="profile-name" class="w-full bg-[var(--surface-lowest)] border border-white/5 rounded-xl px-4 py-3 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all" placeholder="Enter name..">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-dynamic-variant uppercase tracking-wider mb-2">Email Address</label>
+                    <input type="email" id="profile-email" class="w-full bg-[var(--surface-lowest)] border border-white/5 rounded-xl px-4 py-3 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all" placeholder="Enter email..">
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-xs font-semibold text-dynamic-variant uppercase tracking-wider mb-2">Agent Phone Number</label>
+                <div class="flex items-center gap-2">
+                    <span class="text-dynamic-variant bg-[var(--surface-lowest)] border border-white/5 rounded-xl px-4 py-3 text-sm flex items-center justify-center">+91</span>
+                    <input type="text" id="profile-phone" class="flex-1 bg-[var(--surface-lowest)] border border-white/5 rounded-xl px-4 py-3 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all" placeholder="9876543210 (10 digits)">
+                </div>
+                <p class="text-[10px] text-dynamic-variant mt-1 ml-1 opacity-70">Used as a fallback for SMS integrations or default WhatsApp routing.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIP Contacts -->
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold text-dynamic mb-4 flex items-center gap-2">
+            VIP Priority Contacts
+            <span class="material-symbols-outlined text-[16px] text-yellow-500">star</span>
+        </h3>
+        <div class="glass-panel p-6 rounded-3xl">
+            <label class="block text-xs font-semibold text-dynamic-variant uppercase tracking-wider mb-2">WhatsApp Numbers (Comma separated)</label>
+            <p class="text-xs text-dynamic-variant mb-3 opacity-80">Messages from these numbers will <b>always</b> be classified as High Priority, bypassing AI rules.</p>
+            
+            <textarea id="profile-vips" rows="3" class="w-full bg-[var(--surface-lowest)] border border-white/5 rounded-xl p-4 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all font-mono resize-y" placeholder="919876543210@c.us, 1234567890@c.us"></textarea>
+            
+            <button id="save-profile-btn" class="mt-4 px-5 py-2.5 bg-[var(--primary-col)] text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--primary-col)]/20">
+                <span class="material-symbols-outlined text-[18px]">save</span>
+                Save Preferences
+            </button>
+        </div>
+    </div>
+
+    <!-- Service Unlinking -->
+    <div class="mt-10 pt-6 border-t border-white/10">
+        <h3 class="text-lg font-semibold text-dynamic mb-4 flex items-center gap-2 text-rose-500">
+            <span class="material-symbols-outlined text-[20px]">warning</span>
+            Service Connections
+        </h3>
+        <p class="text-xs text-dynamic-variant mb-4">Manage your OAuth tokens and local authentication caches. Breaking an integration usually requires restarting the application.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- Email Disconnect -->
+            <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between border-l-4 border-rose-500/50">
+                <div>
+                    <h4 class="font-bold text-sm text-dynamic flex items-center gap-2 mb-1">
+                        <span class="material-symbols-outlined text-[18px]">mail</span>
+                        Gmail Integration
+                    </h4>
+                    <p class="text-xs text-dynamic-variant mt-1 leading-relaxed">
+                        Deletes the local <code class="text-[10px] bg-black/20 px-1 rounded">token.json</code> file. The app will prompt you to log into Google again on the next restart.
+                    </p>
+                </div>
+                <button id="unlink-email-btn" class="mt-4 px-4 py-2 bg-rose-500/10 text-rose-500 border border-rose-500/30 rounded-lg text-xs font-semibold hover:bg-rose-500/20 transition-all text-left max-w-max">
+                    Disconnect Email
+                </button>
+            </div>
+
+            <!-- WhatsApp Disconnect -->
+            <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between border-l-4 border-emerald-500/50">
+                <div>
+                    <h4 class="font-bold text-sm text-dynamic flex items-center gap-2 mb-1">
+                        <span class="material-symbols-outlined text-[18px] text-emerald-500">chat</span>
+                        WhatsApp Integration
+                    </h4>
+                    <p class="text-xs text-dynamic-variant mt-1 leading-relaxed">
+                        Clears the local WhatsApp Web session cache. You will need to scan a new QR code here to reconnect.
+                    </p>
+                </div>
+                
+                <div id="wa-qr-container" class="mt-4 hidden flex flex-col items-center">
+                    <p class="text-[10px] text-emerald-500 font-bold tracking-widest uppercase mb-2 animate-pulse">Scan to Connect</p>
+                    <canvas id="wa-profile-qr" class="w-32 h-32 bg-white rounded-lg p-1"></canvas>
+                </div>
+
+                <button id="unlink-wa-btn" class="mt-4 px-4 py-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 rounded-lg text-xs font-semibold hover:bg-emerald-500/20 transition-all text-left max-w-max">
+                    Reconnect WhatsApp
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>

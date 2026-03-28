@@ -13,7 +13,7 @@ const VSCODE_NOTIFY_URL = 'http://localhost:3100/notify';
 function initEmailMonitor(mainWindow) {
     try {
         const emailServicePath = path.join(__dirname, '..', 'email-notifier-service', 'main.js');
-        const { startEmailMonitor, forceSync, sendEmailReply } = require(emailServicePath);
+        const { startEmailMonitor, forceSync, sendEmailReply, restartEmailMonitor } = require(emailServicePath);
 
         console.log('[EmailMonitorBridge] Initializing Email Monitor Service...');
 
@@ -66,6 +66,32 @@ function initEmailMonitor(mainWindow) {
                  }
              }
              return { success: false, error: "sendEmailReply not available" };
+        });
+
+        ipcMain.handle('unlink-email', async () => {
+             console.log('[EmailMonitorBridge] IPC: Unlink email requested');
+             if (restartEmailMonitor) {
+                 try {
+                     await restartEmailMonitor(true);
+                     return { success: true, message: 'Gmail tokens cleared. An authorization window will pop up momentarily.' };
+                 } catch (e) {
+                     return { success: false, message: 'Failed to restart Email auth: ' + e.message };
+                 }
+             }
+             return { success: false, message: 'Email monitor not initialized properly.' };
+        });
+
+        ipcMain.handle('relink-email', async () => {
+             console.log('[EmailMonitorBridge] IPC: Relink email requested (Soft restart)');
+             if (restartEmailMonitor) {
+                 try {
+                     await restartEmailMonitor(false);
+                     return { success: true };
+                 } catch (e) {
+                     return { success: false, message: 'Failed to relink Email auth: ' + e.message };
+                 }
+             }
+             return { success: false, message: 'Email monitor not initialized properly.' };
         });
 
     } catch (err) {

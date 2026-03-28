@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const QRCode = require('qrcode');
 const { ipcRenderer } = require('electron');
 const analytics = require('./analytics');
 
@@ -121,11 +122,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateOperatorCard() {
         const safeUser = currentUser || { name: 'Guest', email: '', mode: 'guest' };
-        const avatarName = encodeURIComponent(safeUser.name || 'Guest');
-        const avatarBg = safeUser.mode === 'guest' ? '64748b' : '1f6feb';
+        const avatarBg = safeUser.mode === 'guest' ? '#64748b' : '#1f6feb';
+        const initial = (safeUser.name || 'G').charAt(0).toUpperCase();
+
         operatorNameEl.textContent = safeUser.name || 'Guest';
         operatorStatusEl.textContent = safeUser.mode === 'guest' ? 'Guest session' : (safeUser.email || 'Logged in');
-        operatorAvatarEl.src = safeUser.picture || `https://ui-avatars.com/api/?name=${avatarName}&background=${avatarBg}&color=fff`;
+        
+        const avatarContainer = document.querySelector('.operator-avatar');
+        if (avatarContainer) {
+            avatarContainer.innerHTML = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:16px; background-color: ${avatarBg};">${initial}</div>`;
+        }
+
         topbarLoginBtn.classList.toggle('hidden', safeUser.mode !== 'guest');
     }
 
@@ -173,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const user = await ipcRenderer.invoke('google-login');
             finishUserLogin(user);
+            await ipcRenderer.invoke('relink-email');
         } catch (error) {
             authSubtitle.textContent = `Google sign-in failed: ${error.message}`;
         } finally {
@@ -235,8 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             const targetId = btn.getAttribute('data-target');
             const isProtected = btn.getAttribute('data-protected') === 'true';
-
-            if (isProtected && isGuest()) {
+        if (isProtected && isGuest()) {
                 pendingProtectedTarget = targetId;
                 openAuthOverlay();
                 return;
@@ -244,6 +251,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             loadProtectedView(targetId, btn);
         });
+    });
+
+    document.getElementById('topbar-profile-btn')?.addEventListener('click', (e) => {
+        // Prevent triggering the login button click inside the card
+        if (e.target.tagName.toLowerCase() === 'button') return;
+        
+        if (isGuest()) {
+            openAuthOverlay();
+            return;
+        }
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('breadcrumb-current').textContent = 'Profile';
+        loadView('profile');
     });
 
     // 3. Post-load Interaction Hooks
@@ -442,6 +462,64 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             biViewActive = false;
             if (biRefreshTimer) { clearInterval(biRefreshTimer); biRefreshTimer = null; }
+        }
+
+        if (viewName === 'profile') {
+            document.getElementById('profile-name').value = currentUser.name || '';
+            document.getElementById('profile-email').value = currentUser.email || '';
+            document.getElementById('profile-phone').value = localStorage.getItem('profile_phone') || '';
+            document.getElementById('profile-vips').value = localStorage.getItem('profile_vips') || '';
+
+            let saveProfileBtn = document.getElementById('save-profile-btn');
+            if (saveProfileBtn) {
+                saveProfileBtn.onclick = async () => {
+                    const btn = saveProfileBtn;
+                    const orig = btn.innerHTML;
+                    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span> Saving...`;
+
+                    const vips = document.getElementById('profile-vips').value.trim();
+                    const phone = document.getElementById('profile-phone').value.trim();
+                    
+                    // Save to local storage
+                    localStorage.setItem('profile_phone', phone);
+                    localStorage.setItem('profile_vips', vips);
+                    
+                    // Tell main process to update whatsapp-monitor-service vip file
+                    try {
+                        await ipcRenderer.invoke('save-vips', vips);
+                    } catch (e) {
+                        console.error('Failed to save VIPs remotely', e);
+                    }
+
+                    // Update standard user info in dashboard memory
+                    const updatedUser = { ...currentUser, name: document.getElementById('profile-name').value.trim() };
+                    storeUser(updatedUser);
+
+                    setTimeout(() => { btn.innerHTML = orig; }, 800);
+                };
+            }
+
+            let unlinkEmailBtn = document.getElementById('unlink-email-btn');
+            if (unlinkEmailBtn) {
+                unlinkEmailBtn.onclick = async () => {
+                    if (confirm('Are you sure you want to disconnect your Gmail integration? A browser window will open immediately to sign in again.')) {
+                        const res = await ipcRenderer.invoke('unlink-email');
+                        if (res.message) alert(res.message);
+                        storeUser(null);
+                        openAuthOverlay();
+                    }
+                };
+            }
+
+            let unlinkWaBtn = document.getElementById('unlink-wa-btn');
+            if (unlinkWaBtn) {
+                unlinkWaBtn.onclick = async () => {
+                    const btn = unlinkWaBtn;
+                    btn.textContent = 'Restarting Client...';
+                    const res = await ipcRenderer.invoke('unlink-whatsapp');
+                    btn.textContent = 'Reconnect WhatsApp';
+                };
+            }
         }
     }
 
@@ -1489,6 +1567,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         biRenderAll();
+    });
+
+    // --- WhatsApp specific IPC Handlers ---
+    ipcRenderer.on('whatsapp-qr', (_, qrString) => {
+        const qrCanvas = document.getElementById('wa-profile-qr');
+        const qrContainer = document.getElementById('wa-qr-container');
+        if (qrCanvas && qrContainer) {
+            if (qrString === 'connected') {
+                qrContainer.classList.add('hidden');
+                return;
+            }
+            qrContainer.classList.remove('hidden');
+            QRCode.toCanvas(qrCanvas, qrString, { margin: 1, scale: 4 }, function(error) {
+                if (error) console.error(error);
+            });
+        }
     });
 
     // Default Initialization

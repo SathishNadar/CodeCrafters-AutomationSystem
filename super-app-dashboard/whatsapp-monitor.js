@@ -11,12 +11,17 @@ const VSCODE_NOTIFY_URL = 'http://localhost:3100/notify';
  *
  * @param {BrowserWindow} mainWindow - The main Electron window to send IPC events to.
  */
+let globalRestart = null;
+
 function initWhatsAppMonitor(mainWindow) {
     try {
         const servicePath = path.join(__dirname, '..', 'whatsapp-monitor-service', 'main.js');
-        const { startWhatsAppMonitor, sendWhatsAppReply } = require(servicePath);
+        const { startWhatsAppMonitor, sendWhatsAppReply, restartWhatsAppMonitor } = require(servicePath);
+
+        globalRestart = restartWhatsAppMonitor;
 
         console.log('[WhatsAppMonitorBridge] Initializing WhatsApp Monitor Service...');
+
 
         /**
          * Callback fired for every new incoming WhatsApp message.
@@ -50,8 +55,29 @@ function initWhatsAppMonitor(mainWindow) {
             }
         };
 
+        // IPC Handler: Reconnect WhatsApp Without App Restart
+        ipcMain.handle('unlink-whatsapp', async () => {
+            console.log('[WhatsAppMonitorBridge] Soft-restarting WhatsApp client...');
+            if (globalRestart) {
+                try {
+                    await globalRestart();
+                    return { success: true, message: 'WhatsApp session cleared and client is restarting. Check the terminal for the new QR code shortly.' };
+                } catch (e) {
+                    return { success: false, message: 'Failed to restart WhatsApp: ' + e.message };
+                }
+            }
+            return { success: false, message: 'WhatsApp monitor not initialized properly.' };
+        });
+
         // Start the WhatsApp client (shows QR on first run, auto-connects after)
-        startWhatsAppMonitor(onMessage);
+        const onQR = (qrString) => {
+            console.log('[WhatsAppMonitorBridge] Emitting QR code to UI...');
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('whatsapp-qr', qrString);
+            }
+        };
+
+        startWhatsAppMonitor(onMessage, onQR);
 
         // IPC Handler: Send reply from Unified Inbox UI
         ipcMain.handle('send-whatsapp-reply', async (event, payload) => {

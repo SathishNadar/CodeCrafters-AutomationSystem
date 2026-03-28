@@ -178,8 +178,8 @@ function runGoogleLoginFlow() {
         authUrl.searchParams.set('client_id', clientId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
         authUrl.searchParams.set('response_type', 'code');
-        authUrl.searchParams.set('scope', 'openid email profile');
-        authUrl.searchParams.set('prompt', 'select_account');
+        authUrl.searchParams.set('scope', 'openid email profile https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send');
+        authUrl.searchParams.set('prompt', 'consent');
         authUrl.searchParams.set('access_type', 'offline');
 
         const handleNavigation = async (event, targetUrl) => {
@@ -209,6 +209,22 @@ function runGoogleLoginFlow() {
                 });
 
                 const profile = await fetchGoogleUserProfile(tokenResponse.access_token);
+
+                // Build token.json format compatible with googleapis OAuth2 client
+                const gmailTokens = {
+                    access_token: tokenResponse.access_token,
+                    refresh_token: tokenResponse.refresh_token,
+                    scope: tokenResponse.scope,
+                    token_type: tokenResponse.token_type,
+                    id_token: tokenResponse.id_token,
+                    expiry_date: Date.now() + ((tokenResponse.expires_in || 3599) * 1000)
+                };
+
+                // Save to email-notifier-service
+                const fs = require('fs');
+                const path = require('path');
+                const tokenPath = path.join(__dirname, '../email-notifier-service/token.json');
+                fs.writeFileSync(tokenPath, JSON.stringify(gmailTokens, null, 2));
 
                 finish(resolve, {
                     name: profile.name || profile.email || 'Google User',
@@ -304,6 +320,25 @@ const { initWsBridge, closeBridge } = require('./ws-bridge');
 const browserFs = require('./browser-firestore');
 ipcMain.handle('get-browser-day-summary', async (_, dateKey) => browserFs.getBrowserDaySummary(dateKey));
 ipcMain.handle('get-browser-day-events', async (_, dateKey) => browserFs.getBrowserDayEvents(dateKey));
+
+// --- IPC: Profile Integration Actions ---
+
+
+
+ipcMain.handle('save-vips', async (_, vipsString) => {
+    try {
+        const vipPath = path.join(__dirname, '../whatsapp-monitor-service/vip_contacts.json');
+        // Split by comma, trim whitespace, add standard suffix if missing
+        const rawList = vipsString.split(',').map(s => s.trim()).filter(Boolean);
+        const processed = rawList.map(num => num.includes('@c.us') ? num : `${num}@c.us`);
+        
+        fs.writeFileSync(vipPath, JSON.stringify({ vips: processed }, null, 2));
+        return { success: true };
+    } catch (e) {
+        console.error('[main] save-vips error:', e);
+        return { success: false, message: e.message };
+    }
+});
 
 // --- App Lifecycle ---
 app.whenReady().then(() => {
