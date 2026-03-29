@@ -1,8 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const { ipcMain, Notification } = require('electron');
+const { exec } = require('child_process');
 
 const CONFIG_PATH = path.join(__dirname, 'rules-config.json');
+
+// Idle time tracking (in milliseconds)
+const IDLE_THRESHOLD = 15 * 60 * 1000; // 15 minutes
+let idleStartTime = null;
 
 // List of predefined "Recipes"
 const RULES_DEF = [
@@ -75,7 +80,10 @@ function saveRules() {
  */
 function updateContext(updates) {
     if (updates.hasOwnProperty('isFocused')) globalContext.isFocused = updates.isFocused;
-    if (updates.hasOwnProperty('isIdle')) globalContext.isIdle = updates.isIdle;
+    if (updates.hasOwnProperty('isIdle')) {
+        globalContext.isIdle = updates.isIdle;
+        updateIdleTracking(updates.isIdle); // Track idle time
+    }
 
     if (updates.hasOwnProperty('isDistracted')) {
         const wasDistracted = globalContext.isDistracted;
@@ -122,20 +130,98 @@ function startDistractionTimer() {
     }, 60000);
 }
 
-function isRuleActive(id) {
-    return activeRules[id] === true;
+/**
+ * Plays alarm beep sound (Windows compatible)
+ * @param {number} frequency - Frequency in Hz (default: 800)
+ * @param {number} duration - Duration in ms (default: 300)
+ */
+function playBeep(frequency = 800, duration = 300) {
+    return new Promise((resolve) => {
+        exec(`powershell -c [console]::beep(${frequency}, ${duration})`, (err) => {
+            if (err) console.log('[RulesEngine] Beep unavailable, continuing with notification...');
+            resolve();
+        });
+    });
 }
 
 function getContext() {
     return globalContext;
 }
 
+/**
+ * Triggers urgent alarm with sound + notification
+ * Called when:
+ * 1. User is IDLE for 15+ minutes
+ * 2. rule_urgent_alarm is ACTIVE
+ * 3. URGENT priority notification arrives
+ */
+async function triggerUrgentAlarm(notificationData) {
+    if (!isRuleActive('rule_urgent_alarm')) {
+        console.log('[RulesEngine] Urgent alarm rule not active, skipping...');
+        return;
+    }
+
+    // Check if user has been idle for 15+ minutes
+    const isIdleEnough = globalContext.isIdle && 
+                        (idleStartTime && (Date.now() - idleStartTime) >= IDLE_THRESHOLD);
+
+    if (!isIdleEnough) {
+        console.log('[RulesEngine] User not idle for 15+ minutes, skipping urgent alarm...');
+        return;
+    }
+
+    console.log('[RulesEngine] ⚠️  URGENT ALARM TRIGGERED!');
+    console.log(`[RulesEngine] Conditions met: Idle=${globalContext.isIdle}, IdleTime=${
+        idleStartTime ? Math.round((Date.now() - idleStartTime) / 1000 / 60) : 0
+    }min, Rule=ACTIVE`);
+
+    // Play alarm beep sequence
+    console.log('[RulesEngine] 🔊 Playing alarm beeps...');
+    const alarmPattern = [
+        { freq: 800, dur: 200 },
+        { freq: 800, dur: 200 },
+        { freq: 1000, dur: 300 }
+    ];
+
+    for (const beep of alarmPattern) {
+        await playBeep(beep.freq, beep.dur);
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    // Send Windows notification with urgent alert
+    try {
+        new Notification({
+            title: '🚨 URGENT MESSAGE ALERT',
+            body: `You have an URGENT ${notificationData?.source || 'notification'} from ${notificationData?.from || 'someone'}. You've been away for ${idleStartTime ? Math.round((Date.now() - idleStartTime) / 1000 / 60) : '?'} minutes.`,
+            urgency: 'critical',
+            timeoutType: 'never'
+        }).show();
+        console.log('[RulesEngine] ✅ Windows notification sent');
+    } catch (e) {
+        console.error('[RulesEngine] Failed to send notification:', e.message);
+    }
+}
+
+/**
+ * Updates idle tracking when context changes
+ */
+function updateIdleTracking(isIdle) {
+    if (isIdle && !idleStartTime) {
+        idleStartTime = Date.now();
+        console.log('[RulesEngine] ⏰ User idle timer started');
+    } else if (!isIdle && idleStartTime) {
+        const idleMinutes = Math.round((Date.now() - idleStartTime) / 1000 / 60);
+        console.log(`[RulesEngine] ⏱️ User idle timer stopped (was idle for ${idleMinutes} minutes)`);
+        idleStartTime = null;
+    }
+}
+
+function isRuleActive(id) {
+    return activeRules[id] === true;
+}
+
 function initialize(mainWindow) {
     loadRules();
-
-    ipcMain.handle('get-context-rules', async () => {
-        return RULES_DEF;
-    });
 
     ipcMain.handle('toggle-rule', async (event, ruleId) => {
         const rule = RULES_DEF.find(r => r.id === ruleId);
@@ -155,5 +241,7 @@ module.exports = {
     initialize,
     updateContext,
     isRuleActive,
-    getContext
+    getContext,
+    triggerUrgentAlarm,
+    updateIdleTracking
 };
