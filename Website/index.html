@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Pilot | Context-Aware Orchestration</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="parchment-grain"></div>
+
+    <button
+        id="sorting-hat"
+        class="floating-artifact faq-launcher"
+        type="button"
+        aria-expanded="false"
+        aria-controls="faq-chatbot"
+        aria-label="Open FAQ assistant"
+    >
+        <span class="artifact-emoji">🧙‍♂️</span>
+    </button>
+    <div id="broomstick" class="broom-flyer">🧹</div>
+
+    <aside id="faq-chatbot" class="faq-chatbot" aria-hidden="true">
+        <div class="faq-header">
+            <div>
+                <p class="faq-kicker">Sorting Hat Assistant</p>
+                <h2>Ask About  Focus Pilot</h2>
+            </div>
+            <button type="button" class="faq-close" aria-label="Close FAQ assistant">×</button>
+        </div>
+        <p class="faq-intro">Choose a question and I will give you a quick answer.</p>
+        <div class="faq-question-list" role="listbox" aria-label="Frequently asked questions">
+            <button type="button" class="faq-question is-active" data-faq-key="what-is-it">What is Focus Pilot?</button>
+            <button type="button" class="faq-question" data-faq-key="how-it-works">How does the system work?</button>
+            <button type="button" class="faq-question" data-faq-key="why-useful">Why is this useful?</button>
+            <button type="button" class="faq-question" data-faq-key="downloads">What can I download?</button>
+            <button type="button" class="faq-question" data-faq-key="mobile">Does it support mobile workflows?</button>
+        </div>
+        <div class="faq-response" aria-live="polite">
+            <p id="faq-answer">
+                Focus Pilot is a context-aware orchestration layer that reduces distraction by coordinating notifications,
+                actions, and app signals across tools like VS Code, Chrome, and Gmail.
+            </p>
+        </div>
+    </aside>
+
+    <nav>
+        <div class="logo">FOCUS<span>PILOT</span></div>
+        <div class="nav-links">
+            <a href="#mission">Mission</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#methodology">Methodology</a>
+            <a href="#impact">Impact</a>
+            <a href="#artifacts" class="nav-cta">The Artifacts</a>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div class="hero-layout">
+                <div class="hero-copy">
+                    <h1 class="reveal-text">Mastering the <span>Attention Economy</span></h1>
+                    <p class="hero-tag">A unified, context-aware super-app layer designed to suppress distractions and bridge fragmented workflows.</p>
+                </div>
+                <div class="hero-visual" aria-hidden="true">
+                    <div class="hero-aura"></div>
+                    <div class="hero-orb hero-orb-left"></div>
+                    <div class="hero-orb hero-orb-right"></div>
+                    <div class="hero-rings">
+                        <span class="hero-ring hero-ring-outer"></span>
+                        <span class="hero-ring hero-ring-mid"></span>
+                        <span class="hero-ring hero-ring-inner"></span>
+                    </div>
+                    <div class="hero-note hero-note-top">
+                        <span class="hero-note-label">Context Shield</span>
+                        <strong>Active</strong>
+                    </div>
+                    <div class="hero-image-stage">
+                        <div class="hero-beam"></div>
+                        <figure class="hero-portrait">
+                            <img src="image.jpeg" alt="Arcane-inspired character illustration" class="hero-image">
+                        </figure>
+                    </div>
+                    <div class="hero-note hero-note-bottom">
+                        <span class="hero-note-label">Focus Score</span>
+                        <strong>92%</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section id="mission" class="section">
+        <div class="container">
+            <div class="ps-box">
+                <h2 class="section-label">The Problem Statement</h2>
+                <p class="ps-text">"Modern systems struggle to manage user attention effectively... poorly timed alerts and disconnected workflows disrupt focus and reduce productivity."</p>
+                <div class="ps-divider"></div>
+                <h3>Simplified Reality</h3>
+                <p class="ps-simple">Current tools are <strong>context-blind</strong>. They fail to determine whether a notification should be delivered, delayed, or suppressed based on real-time activity.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="architecture" class="section alt-bg">
+        <div class="container">
+            <h2 class="section-title">Technical Architecture</h2>
+            <div class="arch-container">
+                <div class="flowchart">
+                    <div class="node">
+                        <span class="node-tag">Edge Tier</span>
+                        <h4>Native Extensions</h4>
+                        <p>The Pulse (VS Code) & The Sight (Chrome) </p>
+                    </div>
+                    <div class="arrow">Localhost WebSocket (3000) </div>
+                    <div class="node core-node">
+                        <span class="node-tag">Core Tier</span>
+                        <h4>Electron Orchestrator</h4>
+                        <p>Context Engine + SQLite </p>
+                    </div>
+                    <div class="arrow">Secure API/Webhooks </div>
+                    <div class="node">
+                        <span class="node-tag">Cloud Tier</span>
+                        <h4>Unified Action Hub</h4>
+                        <p>WhatsApp & Gmail Integration</p>
+                    </div>
+                </div>
+                <div class="arch-specs">
+                    <h3>The Engineering Logic </h3>
+                    <ul class="spec-list">
+                        <li><strong>Signal Interception:</strong> Lightweight plugins hook into app-specific events like exports (Premiere) or keystrokes (VS Code).</li>
+                        <li><strong>Context Decisioning:</strong> On-device ML analyzes patterns to calculate a "Focus Score," deciding the fate of incoming alerts.</li>
+                        <li><strong>Cross-App Triggers:</strong> Actions in one app (e.g., Code Build) can trigger notifications or data sync in others (e.g., Teams).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="methodology" class="section">
+        <div class="container">
+            <h2 class="section-title">Implementation Methodology </h2>
+            <div class="method-grid">
+                <div class="method-card">
+                    <h4>1. Local IPC Bridge</h4>
+                    <p>Using Electron's local server (port 3000) for real-time communication with offline desktop extensions.</p>
+                </div>
+                <div class="method-card">
+                    <h4>2. Smart Suppression</h4>
+                    <p>Integrating TensorFlow.js to detect "Deep Work" states and delay low-priority promotional notifications.</p>
+                </div>
+                <div class="method-card">
+                    <h4>3. Unified Delivery</h4>
+                    <p>A "Super App" layer that consolidates fragmented notifications into a single, context-aware stream.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="impact" class="section alt-bg">
+        <div class="container">
+            <h2 class="section-title">The Impact </h2>
+            <div class="impact-grid">
+                <div class="impact-stat">
+                    <span class="stat-num">~25%</span>
+                    <p>Recovery of productive time lost to "Context Switching".</p>
+                </div>
+                <div class="impact-stat">
+                    <span class="stat-num">Zero</span>
+                    <p>Context-switches required to handle cross-app actions.</p>
+                </div>
+                <div class="impact-stat">
+                    <span class="stat-num">Unified</span>
+                    <p>Cohesive experience across mobile, productivity, and enterprise tools.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="artifacts" class="section">
+        <div class="container text-center">
+            <h2 class="section-title">The Artifacts </h2>
+            <div class="artifact-flex">
+                <div class="a-card">
+                    <span class="a-icon">⚡</span>
+                    <h3>The Pulse</h3>
+                    <p>VS Code Context Extension </p>
+                    <a href="#" class="btn-outline">Download VSIX</a>
+                </div>
+                <div class="a-card featured">
+                    <span class="a-icon">📜</span>
+                    <h3>The Core</h3>
+                    <p>Desktop Electron Orchestrator </p>
+                    <a href="#" class="btn-gold">Download App</a>
+                </div>
+                <div class="a-card">
+                    <span class="a-icon">🧿</span>
+                    <h3>The Sight</h3>
+                    <p>Chrome Intelligence Extension </p>
+                    <a href="#" class="btn-outline">Download .Zip</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>Built for the Automation & Efficiency Track | CodeCrafters © 2026 </p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
