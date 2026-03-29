@@ -4,29 +4,56 @@ const { ipcMain } = require('electron');
 
 const VSCODE_NOTIFY_URL = 'http://localhost:3100/notify';
 
-function initEmailMonitor(mainWindow, attentionPolicyManager) {
-    let forceSync = null;
-    let sendEmailReply = null;
-    let restartEmailMonitor = null;
-    let monitorReady = false;
+/**
+ * Initializes the email monitor and connects it to the VS Code notification system 
+ * AND the dashboard's own notification feed.
+ * @param {BrowserWindow} mainWindow - The main Electron window to send IPC events to.
+ */
+function initEmailMonitor(mainWindow) {
+    try {
+        const emailServicePath = path.join(__dirname, '..', 'email-notifier-service', 'main.js');
+        const { startEmailMonitor, forceSync, sendEmailReply, restartEmailMonitor } = require(emailServicePath);
 
-    const emitInboxNotification = (email, analysis) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('new-email-notification', {
-                email,
-                analysis,
-                timestamp: new Date().toISOString(),
-            });
-        }
-    };
+        console.log('[EmailMonitorBridge] Initializing Email Monitor Service...');
 
-    const onAnalysis = async (email, analysis) => {
-        const { priority, task, sender } = analysis;
+        /**
+         * The updated callback that handles every analyzed email.
+         */
+        const onAnalysis = async (email, analysis) => {
+            const { priority, task, sender } = analysis;
+            const rulesEngine = require('./rules-engine');
+            const ctx = rulesEngine.getContext();
 
-        if (priority === 'High' || priority === 'Urgent') {
-            try {
-                if (attentionPolicyManager?.shouldAllowInterrupt(priority)) {
-                    const message = `[${priority}] ${task} - from ${sender || email.from}`;
+            // --- RULE 3: Focused Auto-Responder (Low Priority Only) ---
+            if (rulesEngine.isRuleActive('rule_focus_reply') && ctx.isFocused && priority === 'Low') {
+                if (sendEmailReply) {
+                    try {
+                        const replyContent = "Automatic Reply:\nI am currently deep in a coding task and have paused non-urgent notifications. I will review this email later.";
+                        await sendEmailReply(email.from, `Re: ${email.subject}`, replyContent, email.threadId, email.messageId);
+                        console.log(`[EmailMonitorBridge] Triggered Focused Auto-Reply to ${email.from}`);
+                    } catch (e) {
+                        console.error('[EmailMonitorBridge] Failed focus reply:', e.message);
+                    }
+                }
+            }
+
+            // --- RULE 4: Urgent Escalation Alarm ---
+            if (rulesEngine.isRuleActive('rule_urgent_alarm') && ctx.isIdle && priority === 'Urgent') {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('trigger-urgent-alarm', { sender: sender || email.from, task, source: 'Email' });
+                }
+            }
+
+            // --- RULE 1: Deep Work Shield ---
+            // Shield ON = High/Urgent priority only. Shield OFF = High/Urgent + Medium.
+            let shouldPingVscode = (priority === "High" || priority === "Urgent");
+            if (!rulesEngine.isRuleActive('rule_deep_work')) {
+                shouldPingVscode = shouldPingVscode || priority === "Medium";
+            }
+
+            if (shouldPingVscode) {
+                try {
+                    const message = `📬 [${priority}] ${task} - from ${sender || email.from}`;
                     await axios.post(VSCODE_NOTIFY_URL, { message });
                     console.log(`[EmailMonitorBridge] VS Code Alert Sent: "${task}"`);
                 } else {

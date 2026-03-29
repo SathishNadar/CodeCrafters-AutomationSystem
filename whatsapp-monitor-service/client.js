@@ -3,6 +3,7 @@ const qrcode = require('qrcode-terminal');
 
 let globalClient = null;
 let globalOnMessage = null;
+let globalOnQR = null;
 let isReady = false;
 
 /**
@@ -12,8 +13,9 @@ let isReady = false;
  *
  * @param {Function} onMessage - Callback(msg) for every incoming message
  */
-function startClient(onMessage) {
+function startClient(onMessage, onQR) {
     globalOnMessage = onMessage;
+    globalOnQR = onQR || null;
 
     const client = new Client({
         authStrategy: new LocalAuth({
@@ -33,11 +35,17 @@ function startClient(onMessage) {
         }
     });
 
-    // First-time QR scan (only needed once per session directory)
+    // Make it globally accessible immediately so we can stop/destroy it even if stuck at QR state
+    globalClient = client;
+
+    // First-time QR scan — forward to Electron UI AND print to terminal
     client.on('qr', (qr) => {
         console.log('\n[WhatsAppClient] 📱 Scan this QR code with your WhatsApp mobile app:');
         qrcode.generate(qr, { small: true });
         console.log('[WhatsAppClient] Waiting for scan...\n');
+        // Forward QR string to Electron renderer (for in-app scan UI)
+        if (typeof onQR === 'function') onQR(qr);
+        if (typeof globalOnQR === 'function') globalOnQR(qr);
     });
 
     client.on('authenticated', () => {
@@ -48,6 +56,8 @@ function startClient(onMessage) {
         console.log('[WhatsAppClient] ✅ WhatsApp Web is connected and ready!');
         isReady = true;
         globalClient = client;
+        // Notify UI that connection is established — hides QR container
+        if (typeof onQR === 'function') onQR('connected');
     });
 
     client.on('disconnected', (reason) => {
@@ -80,7 +90,13 @@ function startClient(onMessage) {
         console.log('[WhatsAppClient] Deleting saved session — please restart to re-scan QR.');
     });
 
-    client.initialize();
+    client.initialize().catch(err => {
+        console.error('[WhatsAppClient] initialize() failed:', err.message);
+        // Notify the UI that something went wrong
+        if (typeof globalOnQR === 'function') {
+            globalOnQR('error:' + err.message);
+        }
+    });
     console.log('[WhatsAppClient] Initializing... (this may take 10-20 seconds on first run)');
 }
 
@@ -97,4 +113,53 @@ async function sendReply(chatId, text) {
     console.log(`[WhatsAppClient] ✉️  Reply sent to ${chatId}`);
 }
 
-module.exports = { startClient, sendReply };
+/**
+ * Stops the WhatsApp client completely and clears the session.
+ */
+async function stopClient() {
+    console.log('[WhatsAppClient] Stopping client...');
+    isReady = false;
+    if (globalClient) {
+        try {
+            await globalClient.logout();
+        } catch (_) {}
+        try {
+            await globalClient.destroy();
+        } catch (_) {}
+        globalClient = null;
+    }
+    
+    // Give Puppeteer a moment to fully close the browser and release file locks
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // Delete auth session
+    const fse = require('fs');
+    const authPath = require('path').join(__dirname, '.wwebjs_auth');
+    const cachePath = require('path').join(__dirname, '.wwebjs_cache');
+    [authPath, cachePath].forEach(p => {
+        if (fse.existsSync(p)) {
+            try { fse.rmSync(p, { recursive: true, force: true }); } catch (_) {}
+        }
+    });
+    console.log('[WhatsAppClient] Session cleared.');
+    return { success: true };
+}
+
+/**
+ * Restarts the WhatsApp client — destroys current session and re-initialises.
+ * A new QR code will be emitted via the globalOnQR callback.
+ */
+async function restartClient() {
+    await stopClient();
+
+    console.log('[WhatsAppClient] Re-initializing...');
+    try {
+        startClient(globalOnMessage, globalOnQR);
+    } catch (initErr) {
+        console.error('[WhatsAppClient] Re-init error:', initErr.message);
+        return { success: false, message: initErr.message };
+    }
+    return { success: true };
+}
+
+module.exports = { startClient, sendReply, restartClient, stopClient };

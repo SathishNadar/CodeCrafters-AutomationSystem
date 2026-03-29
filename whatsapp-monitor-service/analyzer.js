@@ -2,10 +2,21 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { OpenAI } = require('openai');
 
-const client = new OpenAI({
-    baseURL: 'https://router.huggingface.co/v1',
-    apiKey: process.env.HF_API_KEY,
-});
+// Lazy client — created on first use so a missing API key doesn't crash require()
+let _client = null;
+function getClient() {
+    if (_client) return _client;
+    const apiKey = process.env.HF_API_KEY;
+    if (!apiKey) {
+        console.warn('[WhatsAppAnalyzer] HF_API_KEY not set — AI classification disabled, using fallback.');
+        return null;
+    }
+    _client = new OpenAI({
+        baseURL: 'https://router.huggingface.co/v1',
+        apiKey,
+    });
+    return _client;
+}
 
 /**
  * Parses the Qwen response into a structured object.
@@ -47,6 +58,17 @@ function parseAnalysis(text) {
  * @param {string} contactName - Display name of the sender contact
  */
 async function analyzeWhatsAppMessage(messageBody, contactName) {
+    const client = getClient();
+
+    // No API key — return a sensible fallback so message still appears in inbox
+    if (!client) {
+        return {
+            task: messageBody.substring(0, 60) + (messageBody.length > 60 ? '...' : ''),
+            priority: 'Medium',
+            sender: contactName
+        };
+    }
+
     try {
         const chatCompletion = await client.chat.completions.create({
             model: 'Qwen/Qwen2.5-7B-Instruct:fastest',
@@ -54,19 +76,20 @@ async function analyzeWhatsAppMessage(messageBody, contactName) {
                 {
                     role: 'system',
                     content: `You are a WhatsApp message classifier for a busy developer.
-Classify each message and respond ONLY in this format:
-TASK: [brief task description or None], PRIORITY: [Low/Medium/High], SENDER: [${contactName}]
+You will be given a batch of recent messages from a single sender. Your job is to understand the FULL context of all messages combined.
+If the first messages are casual but the last is urgent, the overall classification must be URGENT.
+Respond ONLY in this format:
+TASK: [synthesize a single concise task/summary from all messages], PRIORITY: [Low/Medium/High], SENDER: [${contactName}]
 
 Classification guidelines:
-- Casual greetings, emojis, "ok", "lol", "good morning" → PRIORITY: Low, TASK: None
-- Meeting requests, sharing links, general questions, "can we talk?" → PRIORITY: Medium
-- Words like URGENT, ASAP, "server down", "deploy failed", "need help NOW", "not working", "critical", "production issue" → PRIORITY: High
-- Payment requests, deadlines today, "call me right now" → PRIORITY: High
-When in doubt, use Medium.`
+- Casual greetings ("hi", "ok", "lol") -> PRIORITY: Low, TASK: None
+- Meeting requests, sharing links, general questions -> PRIORITY: Medium
+- Words like URGENT, ASAP, "server down", "deploy failed", "need help NOW", "critical", "production issue", deadlines -> PRIORITY: High
+Always assign the HIGHEST priority found in the context.`
                 },
                 {
                     role: 'user',
-                    content: `Classify this WhatsApp message from ${contactName}: "${messageBody}"`
+                    content: `Classify this batch of messages from ${contactName}:\n\n${messageBody}`
                 }
             ],
             max_tokens: 80,
@@ -77,7 +100,7 @@ When in doubt, use Medium.`
         return parseAnalysis(responseText);
 
     } catch (error) {
-        console.error('[WhatsAppAnalyzer] ❌ Qwen AI Error:', error.message);
+        console.error('[WhatsAppAnalyzer] Qwen AI Error:', error.message);
         // Fallback: return a basic Medium classification so the message still appears in the inbox
         return {
             task: messageBody.substring(0, 60) + (messageBody.length > 60 ? '...' : ''),

@@ -1,12 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const { startClient, sendReply } = require('./client');
+const { startClient, sendReply, restartClient, stopClient } = require('./client');
 const { analyzeWhatsAppMessage } = require('./analyzer');
 
 const SEEN_FILE = path.join(__dirname, 'seen_messages.json');
 
 let globalSeen = new Set();
 let globalSendReply = sendReply;
+
+// Sender-based message debouncing map
+const messageBuffer = {}; // { 'ContactName': { timer, texts: [], msgs: [] } }
+const CONSOLIDATION_WINDOW_MS = 10000;
 
 /**
  * Starts the WhatsApp monitoring service.
@@ -15,7 +19,7 @@ let globalSendReply = sendReply;
  *
  * @param {Function} onMessage - Callback(msg, analysis) invoked for every classified message
  */
-async function startWhatsAppMonitor(onMessage) {
+async function startWhatsAppMonitor(onMessage, onQR) {
     // Load previously seen message IDs from disk
     if (fs.existsSync(SEEN_FILE)) {
         try {
@@ -45,21 +49,52 @@ async function startWhatsAppMonitor(onMessage) {
         }
 
         const messageBody = msg.body || '';
-        console.log(`[WhatsAppMonitor] New message from ${contactName}: "${messageBody.substring(0, 50)}"`);
 
-        // Run AI classification
-        const analysis = await analyzeWhatsAppMessage(messageBody, contactName);
-        const finalAnalysis = analysis || {
-            task: messageBody.substring(0, 80),
-            priority: 'Medium',
-            sender: contactName
-        };
+        if (!messageBuffer[contactName]) {
+            messageBuffer[contactName] = { timer: null, texts: [], msgs: [] };
+        }
 
-        console.log(`[WhatsAppMonitor] Classified: ${finalAnalysis.priority} — ${finalAnalysis.task}`);
+        const bufferData = messageBuffer[contactName];
+        clearTimeout(bufferData.timer);
 
-        // Fire the callback with the raw msg object AND the analysis
-        onMessage(msg, finalAnalysis);
-    });
+        bufferData.texts.push(messageBody);
+        bufferData.msgs.push(msg);
+
+        console.log(`[WhatsAppMonitor] Buffered message from ${contactName}. Waiting ${CONSOLIDATION_WINDOW_MS}ms...`);
+
+        bufferData.timer = setTimeout(async () => {
+            // Unload the buffer
+            const batch = messageBuffer[contactName];
+            delete messageBuffer[contactName];
+
+            const combinedBody = batch.texts.join(' \n ');
+            console.log(`[WhatsAppMonitor] Processing consolidated batch from ${contactName} (${batch.msgs.length} msgs)...`);
+
+            // Run AI classification on the combined context
+            const analysis = await analyzeWhatsAppMessage(combinedBody, contactName);
+            const finalAnalysis = analysis || {
+                task: combinedBody.substring(0, 80),
+                priority: 'Medium',
+                sender: contactName
+            };
+
+            // Use the last message object as the carrier and patch its body to the combined body
+            const masterMsg = batch.msgs[batch.msgs.length - 1];
+            masterMsg.body = combinedBody;
+
+            console.log(`[WhatsAppMonitor] Classified: ${finalAnalysis.priority} — ${finalAnalysis.task}`);
+
+            // Fire the callback with the merged message
+            onMessage(masterMsg, finalAnalysis);
+        }, CONSOLIDATION_WINDOW_MS);
+    }, onQR);  // ← pass the QR callback into client.js
+}
+/**
+ * Restarts the WhatsApp client — destroys current session and re-initialises.
+ * Called when user clicks "Reconnect WhatsApp" in the profile view.
+ */
+async function restartWhatsAppMonitor() {
+    return await restartClient();
 }
 
 /**
@@ -69,6 +104,10 @@ async function startWhatsAppMonitor(onMessage) {
  */
 async function sendWhatsAppReply(chatId, text) {
     return await globalSendReply(chatId, text);
+}
+
+async function stopWhatsAppMonitor() {
+    return await stopClient();
 }
 
 /**
@@ -86,4 +125,4 @@ function persistSeen() {
     }
 }
 
-module.exports = { startWhatsAppMonitor, sendWhatsAppReply };
+module.exports = { startWhatsAppMonitor, sendWhatsAppReply, restartWhatsAppMonitor, stopWhatsAppMonitor };

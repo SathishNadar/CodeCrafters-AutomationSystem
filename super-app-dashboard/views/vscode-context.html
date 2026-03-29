@@ -1,92 +1,171 @@
-<div id="section-vscode-context" class="view-section space-y-6">
+<div id="section-vscode-context" class="view-section dashboard-shell">
+    
+    <!-- Premium Hero Section (Dashboard style) -->
     <section class="hero-surface border-l-4 border-secondary-dynamic">
         <div class="hero-grid">
             <div class="hero-copy">
                 <div class="hero-kicker">
-                    <span class="hero-kicker-dot"></span>
-                    <span>VS Code Context</span>
+                    <span class="hero-kicker-dot bg-secondary-dynamic"></span>
+                    <span>Live Extension Telemetry</span>
                 </div>
-                <div class="space-y-3">
-                    <h2 class="hero-title text-dynamic">Live editor state, decoded</h2>
-                    <p class="max-w-2xl text-sm text-dynamic-variant leading-relaxed">
-                        This view reads the live ContextBridge payload coming from VS Code and turns it into an operator-friendly status panel.
-                    </p>
+
+                <div class="flex items-start gap-4">
+                    <div class="hero-icon-wrap bg-secondary-dynamic/10">
+                        <span class="material-symbols-outlined text-secondary-dynamic text-3xl">data_object</span>
+                    </div>
+                    <div class="space-y-2">
+                        <h2 id="vc-state" class="hero-title text-dynamic">Idle</h2>
+                        <p class="max-w-2xl text-sm text-dynamic-variant leading-relaxed">
+                            This panel translates the raw ContextBridge pipeline coming from VS Code into actionable developer insights.
+                        </p>
+                    </div>
                 </div>
             </div>
 
             <div class="hero-metrics">
                 <div class="hero-stat-card">
-                    <span class="hero-stat-label">Current State</span>
-                    <span id="vc-state" class="hero-stat-value">Idle</span>
+                    <span class="hero-stat-label">Cognitive Load</span>
+                    <span id="vc-load" class="hero-stat-value text-secondary-dynamic">0</span>
                 </div>
                 <div class="hero-stat-card">
-                    <span class="hero-stat-label">Cognitive Load</span>
-                    <span id="vc-load" class="hero-stat-value">0</span>
+                    <span class="hero-stat-label">Session Min</span>
+                    <span id="vc-session-min" class="hero-stat-value">0</span>
                 </div>
                 <div class="hero-stat-card hero-stat-card-accent">
                     <span class="hero-stat-label">Latest Event</span>
-                    <span id="vc-latest-event" class="hero-stat-note">Waiting for VS Code activity...</span>
+                    <span id="vc-latest-event" class="hero-stat-note pt-1">Waiting for activity...</span>
                 </div>
             </div>
         </div>
     </section>
 
+    <!-- Command Strip (Dashboard style) -->
+    <section class="command-strip">
+        <article class="command-card">
+            <div class="command-icon bg-[rgba(31,111,235,0.14)] text-[#78a9ff]">
+                <span class="material-symbols-outlined">api</span>
+            </div>
+            <div>
+                <p class="command-label">Data Source</p>
+                <p id="vc-source" class="command-value font-mono text-[11px]">Live ContextBridge stream</p>
+            </div>
+        </article>
+        <article class="command-card">
+            <div class="command-icon bg-[rgba(13,148,136,0.14)] text-[#3cc6b7]">
+                <span class="material-symbols-outlined">update</span>
+            </div>
+            <div>
+                <p class="command-label">Session ID</p>
+                <p id="vc-date-key" class="command-value font-mono text-[11px]">Current session</p>
+            </div>
+        </article>
+        <article class="command-card">
+            <div class="command-icon bg-[rgba(245,158,11,0.14)] text-[#f7c561]">
+                <span class="material-symbols-outlined">terminal</span>
+            </div>
+            <div>
+                <p class="command-label">Primary Language</p>
+                <p id="vc-language" class="command-value font-mono text-[11px]">--</p>
+            </div>
+        </article>
+    </section>
+
     <section class="dashboard-grid">
         <div class="dashboard-column-main">
-            <article class="dashboard-panel">
+            <!-- Current File Context -->
+            <article class="dashboard-panel dashboard-panel-strong">
                 <div class="panel-header">
                     <div>
-                        <p class="panel-kicker">Current File Context</p>
+                        <p class="panel-kicker">Live Context Map</p>
                         <h3 class="panel-title">Where attention is pointed</h3>
                     </div>
                     <div class="context-filter-row">
-                        <button id="vc-filter-live" class="context-filter-btn active">Live</button>
-                        <button id="vc-filter-last-working" class="context-filter-btn">Last Working</button>
+                        <button id="vc-filter-live" class="context-filter-btn active">Live Stream</button>
+                        <button id="vc-filter-last-working" class="context-filter-btn">📊 Weekly Analysis</button>
                     </div>
                 </div>
 
-                <div class="context-grid">
-                    <div class="context-card">
-                        <span class="metric-label">File</span>
-                        <div id="vc-file" class="context-value">No file detected yet</div>
+                <div class="flex flex-col gap-4 mt-2">
+                    <div class="glass-panel p-4 rounded-xl border border-dynamic">
+                        <span class="text-[10px] uppercase font-bold text-dynamic-variant tracking-wider">Active File</span>
+                        <div id="vc-file" class="font-mono text-sm text-primary-dynamic mt-1 truncate">No file detected yet</div>
                     </div>
-                    <div class="context-card">
-                        <span class="metric-label">Language</span>
-                        <div id="vc-language" class="context-value">--</div>
-                    </div>
-                    <div class="context-card">
-                        <span class="metric-label">Timestamp</span>
-                        <div id="vc-time" class="context-value">--</div>
-                    </div>
-                    <div class="context-card">
-                        <span class="metric-label">Event Summary</span>
-                        <div id="vc-summary" class="context-value">No event summary available yet.</div>
-                    </div>
-                    <div class="context-card">
-                        <span class="metric-label">Data Source</span>
-                        <div id="vc-source" class="context-value">Live ContextBridge stream</div>
-                    </div>
-                    <div class="context-card">
-                        <span class="metric-label">Saved Date</span>
-                        <div id="vc-date-key" class="context-value">Current session</div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-panel p-4 rounded-xl border border-dynamic">
+                            <span class="text-[10px] uppercase font-bold text-dynamic-variant tracking-wider">Timestamp</span>
+                            <div id="vc-time" class="text-sm font-medium text-dynamic mt-1">--</div>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border border-dynamic border-l-2 border-l-secondary-dynamic">
+                            <span class="text-[10px] uppercase font-bold text-secondary-dynamic tracking-wider">Event Summary</span>
+                            <div id="vc-summary" class="text-xs text-dynamic-variant mt-1 leading-relaxed line-clamp-2">No event summary available yet.</div>
+                        </div>
                     </div>
                 </div>
             </article>
 
+            <!-- Raw Payload -->
             <article class="dashboard-panel">
                 <div class="panel-header">
                     <div>
-                        <p class="panel-kicker">Recent Signal Timeline</p>
-                        <h3 class="panel-title">Last VS Code events</h3>
+                        <p class="panel-kicker">Developer Tools</p>
+                        <h3 class="panel-title">ContextBridge Payload</h3>
+                    </div>
+                    <span class="material-symbols-outlined text-dynamic-variant text-[18px]">data_array</span>
+                </div>
+                <pre id="vc-raw-payload" class="raw-payload-card h-[250px] overflow-y-auto mt-2">No payload received yet.</pre>
+            </article>
+
+            <!-- Timeline -->
+            <article class="dashboard-panel border-0 bg-transparent p-0">
+                <div class="panel-header px-4">
+                    <div>
+                        <p class="panel-kicker">Recent Timeline</p>
+                        <h3 class="panel-title">Signal history</h3>
                     </div>
                 </div>
-                <div id="vc-event-list" class="space-y-3">
-                    <div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant">Waiting for VS Code activity...</div>
+                <div id="vc-event-list" class="space-y-3 mt-2">
+                    <div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant text-center">Waiting for VS Code activity...</div>
                 </div>
             </article>
         </div>
 
         <div class="dashboard-column-side">
+            
+            <!-- Dashboard's Famous Cognitive Dial (Ported) -->
+            <article class="dashboard-panel dashboard-panel-highlight">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Cognitive Load</p>
+                        <h3 class="panel-title">Pressure index</h3>
+                    </div>
+                </div>
+
+                <div class="load-panel-body">
+                    <div class="relative w-40 h-40 mx-auto">
+                        <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-high)" stroke-width="10"/>
+                            <!-- Notice the ID here is vc-load-arc to separate from dashboard -->
+                            <circle id="vc-load-arc" cx="50" cy="50" r="42" fill="none" stroke="#f43f5e" stroke-width="10"
+                                stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"
+                                class="transition-all duration-700"/>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="vc-load-score" class="text-4xl font-extrabold text-dynamic">0</span>
+                            <span class="text-[11px] tracking-[0.22em] uppercase text-dynamic-variant">Load Score</span>
+                        </div>
+                    </div>
+
+                    <div class="text-center space-y-2">
+                        <div id="vc-load-label" class="text-sm font-semibold text-rose-400">VS Code Load Engine</div>
+                        <p class="text-xs text-dynamic-variant leading-relaxed">
+                            Derived strictly from ContextBridge error & switch rates.
+                        </p>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Session Stats -->
             <article class="dashboard-panel">
                 <div class="panel-header">
                     <div>
@@ -95,36 +174,30 @@
                     </div>
                 </div>
 
-                <div class="stats-grid">
-                    <div class="metric-card">
-                        <span class="metric-label">Chars</span>
+                <div class="stats-grid grid-cols-2">
+                    <div class="metric-card bg-zinc-500/10">
+                        <span class="material-symbols-outlined metric-icon text-zinc-400">keyboard</span>
                         <span id="vc-chars" class="metric-value">0</span>
+                        <span class="metric-label">Chars Typed</span>
                     </div>
-                    <div class="metric-card">
-                        <span class="metric-label">Switches</span>
+                    <div class="metric-card bg-blue-500/10">
+                        <span class="material-symbols-outlined metric-icon text-blue-400">tab</span>
                         <span id="vc-switches" class="metric-value">0</span>
+                        <span class="metric-label">File Switches</span>
                     </div>
-                    <div class="metric-card">
-                        <span class="metric-label">Errors</span>
-                        <span id="vc-errors" class="metric-value">0</span>
+                    <div class="metric-card bg-rose-500/10">
+                        <span class="material-symbols-outlined metric-icon text-rose-400">error</span>
+                        <span id="vc-errors" class="metric-value text-rose-500">0</span>
+                        <span class="metric-label">Syntax Errors</span>
                     </div>
-                    <div class="metric-card">
-                        <span class="metric-label">Session Min</span>
-                        <span id="vc-session-min" class="metric-value">0</span>
+                    <div class="metric-card bg-emerald-500/10">
+                        <span class="material-symbols-outlined metric-icon text-emerald-400">check_circle</span>
+                        <span class="metric-value text-emerald-500">Live</span>
+                        <span class="metric-label">Connection</span>
                     </div>
                 </div>
             </article>
 
-            <article class="dashboard-panel">
-                <div class="panel-header">
-                    <div>
-                        <p class="panel-kicker">Raw Payload</p>
-                        <h3 class="panel-title">ContextBridge event</h3>
-                    </div>
-                </div>
-
-                <pre id="vc-raw-payload" class="raw-payload-card">No payload received yet.</pre>
-            </article>
         </div>
     </section>
 </div>

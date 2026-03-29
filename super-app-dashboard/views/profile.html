@@ -31,7 +31,6 @@
                     <span class="text-dynamic-variant bg-[var(--surface-lowest)] border border-white/5 rounded-xl px-4 py-3 text-sm flex items-center justify-center">+91</span>
                     <input type="text" id="profile-phone" class="flex-1 bg-[var(--surface-lowest)] border border-white/5 rounded-xl px-4 py-3 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all" placeholder="9876543210 (10 digits)">
                 </div>
-                <p class="text-[10px] text-dynamic-variant mt-1 ml-1 opacity-70">Used as a fallback for SMS integrations or default WhatsApp routing.</p>
             </div>
         </div>
     </div>
@@ -46,7 +45,7 @@
             <label class="block text-xs font-semibold text-dynamic-variant uppercase tracking-wider mb-2">WhatsApp Numbers (Comma separated)</label>
             <p class="text-xs text-dynamic-variant mb-3 opacity-80">Messages from these numbers will <b>always</b> be classified as High Priority, bypassing AI rules.</p>
             
-            <textarea id="profile-vips" rows="3" class="w-full bg-[var(--surface-lowest)] border border-white/5 rounded-xl p-4 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all font-mono resize-y" placeholder="919876543210@c.us, 1234567890@c.us"></textarea>
+            <textarea id="profile-vips" rows="3" class="w-full bg-[var(--surface-lowest)] border border-white/5 rounded-xl p-4 text-sm text-dynamic focus:outline-none focus:ring-2 focus:ring-[var(--primary-col)] transition-all font-mono resize-y" placeholder="9321945896, 7977662232"></textarea>
             
             <button id="save-profile-btn" class="mt-4 px-5 py-2.5 bg-[var(--primary-col)] text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[var(--primary-col)]/20">
                 <span class="material-symbols-outlined text-[18px]">save</span>
@@ -93,14 +92,19 @@
                     </p>
                 </div>
                 
-                <div id="wa-qr-container" class="mt-4 hidden flex flex-col items-center">
+                <div id="wa-qr-container" class="mt-4 flex-col items-center" style="display:none">
                     <p class="text-[10px] text-emerald-500 font-bold tracking-widest uppercase mb-2 animate-pulse">Scan to Connect</p>
                     <canvas id="wa-profile-qr" class="w-32 h-32 bg-white rounded-lg p-1"></canvas>
                 </div>
 
-                <button id="unlink-wa-btn" class="mt-4 px-4 py-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 rounded-lg text-xs font-semibold hover:bg-emerald-500/20 transition-all text-left max-w-max">
-                    Reconnect WhatsApp
-                </button>
+                <div class="flex gap-2 mt-4">
+                    <button id="unlink-wa-btn" class="px-4 py-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 rounded-lg text-xs font-semibold hover:bg-emerald-500/20 transition-all text-left">
+                        Reconnect WhatsApp
+                    </button>
+                    <button id="stop-wa-btn" class="px-4 py-2 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg text-xs font-semibold hover:bg-red-500/20 transition-all text-left" style="display:none">
+                        Disconnect & Hide
+                    </button>
+                </div>
             </div>
 
         </div>
