@@ -91,7 +91,7 @@ npm start
 
 Meet the team behind the magic:
 
-| [<img src="https://github.com/SathishNadar.png?size=100" width="100"><br><sub><b>Sathish Nadar</b></sub>](https://github.com/SathishNadar) | [<img src="https://github.com/Vrushabh-003.png?size=100" width="100"><br><sub><b>Vrushabh Shirke</b></sub>](https://github.com/Vrushabh-003) | [<img src="https://github.com/janhvidhale04.png?size=100" width="100"><br><sub><b>Janhvi Dhale</b></sub>](https://github.com/jdhale) | [<img src="https://github.com/t-naresh.png?size=100" width="100"><br><sub><b>Naresh T</b></sub>](https://github.com/t-naresh) |
+| [<img src="https://github.com/SathishNadar.png?size=100" width="100"><br><sub><b>Sathish Nadar</b></sub>](https://github.com/SathishNadar) | [<img src="https://github.com/Vrushabh-003.png?size=100" width="100"><br><sub><b>Vrushabh Shirke</b></sub>](https://github.com/Vrushabh-003) | [<img src="https://github.com/jdhale.png?size=100" width="100"><br><sub><b>Janhvi Dhale</b></sub>](https://github.com/jdhale) | [<img src="https://github.com/t-naresh.png?size=100" width="100"><br><sub><b>Naresh T</b></sub>](https://github.com/t-naresh) |
 | :---: | :---: | :---: | :---: |
 
 ---
