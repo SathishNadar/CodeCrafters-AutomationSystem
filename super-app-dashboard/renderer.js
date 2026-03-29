@@ -19,6 +19,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingProtectedTarget = null;
     let vscodeContextMode = 'live';
     let lastWorkingContext = null;
+    let voicePolicyState = {
+        active: false,
+        mode: 'normal',
+        label: 'Adaptive Mode',
+        summary: 'Notifications are following the live context engine.',
+        endsAt: null,
+        transcript: null,
+    };
+    let voiceListening = false;
+    let voiceTranscript = '';
+    let voiceStatusMessage = 'Use your mic or type a command to control interruptions.';
+    let voiceMediaRecorder = null;
+    let voiceAudioChunks = [];
+    let voiceWidgetOpen = false;
     function formatEventTitle(value) {
         return (value || 'unknown_event')
             .split('_')
@@ -38,6 +52,28 @@ document.addEventListener('DOMContentLoaded', () => {
             month: 'short',
         });
     }
+
+    function formatTimeOnly(value) {
+        if (!value) return '--';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '--';
+        return date.toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    }
+
+    function formatRemainingMs(ms) {
+        if (!Number.isFinite(ms) || ms <= 0) return 'ending now';
+        const totalMinutes = Math.ceil(ms / 60000);
+        if (totalMinutes < 60) return `${totalMinutes} min left`;
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (!minutes) return `${hours} hr${hours === 1 ? '' : 's'} left`;
+        return `${hours} hr ${minutes} min left`;
+    }
+
+
 
     function formatDisplayName(user) {
         const rawName = (user?.displayName || user?.name || '').trim();
@@ -239,6 +275,259 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderVoicePolicyUI() {
+        const liveRemainingMs = voicePolicyState.active && voicePolicyState.endsAt
+            ? Math.max(0, voicePolicyState.endsAt - Date.now())
+            : 0;
+        const widgetToggle = document.getElementById('voice-widget-toggle');
+        const widgetPanel = document.getElementById('voice-widget-panel');
+        const modeValue = document.getElementById('dashboard-mode-value');
+        const modeDetail = document.getElementById('dashboard-mode-detail');
+        const guardDetail = document.getElementById('dashboard-guard-detail');
+        const policyChip = document.getElementById('voice-policy-chip');
+        const policyCopy = document.getElementById('voice-policy-copy');
+        const policyWindow = document.getElementById('voice-policy-window');
+        const policyTranscript = document.getElementById('voice-policy-transcript');
+        const transcriptEl = document.getElementById('voice-transcript');
+        const statusEl = document.getElementById('voice-command-status');
+        const micBtn = document.getElementById('voice-mic-btn');
+        const stopBtn = document.getElementById('voice-stop-btn');
+
+        if (widgetToggle) {
+            widgetToggle.setAttribute('aria-expanded', voiceWidgetOpen ? 'true' : 'false');
+        }
+
+        if (widgetPanel) {
+            widgetPanel.classList.toggle('hidden', !voiceWidgetOpen);
+        }
+
+        if (modeValue) {
+            modeValue.textContent = voicePolicyState.active
+                ? `${voicePolicyState.label} until ${formatTimeOnly(voicePolicyState.endsAt)}`
+                : 'Notifications follow live context';
+        }
+
+        if (modeDetail) {
+            modeDetail.textContent = voicePolicyState.active
+                ? formatRemainingMs(liveRemainingMs)
+                : 'Adaptive mode is active';
+        }
+
+        if (guardDetail) {
+            guardDetail.textContent = voicePolicyState.active
+                ? voicePolicyState.mode === 'mute_all'
+                    ? 'All interruptions are being held back until the timer ends.'
+                    : 'Only higher-priority interruptions can break through right now.'
+                : 'Rules and inbox triage stay in sync';
+        }
+
+        if (policyChip) {
+            policyChip.textContent = voicePolicyState.active ? voicePolicyState.label : 'Adaptive Mode';
+            policyChip.className = voicePolicyState.active
+                ? 'text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'text-[11px] font-bold px-3 py-1 rounded-full bg-[var(--surface-high)] text-dynamic-variant border border-[var(--outline-var)]';
+        }
+
+        if (policyCopy) {
+            policyCopy.textContent = voicePolicyState.summary || 'Notifications are following the live context engine.';
+        }
+
+        if (policyWindow) {
+            policyWindow.textContent = voicePolicyState.active
+                ? `Ends at ${formatTimestamp(voicePolicyState.endsAt)}`
+                : 'No timed override is active right now.';
+        }
+
+        if (policyTranscript) {
+            policyTranscript.textContent = voicePolicyState.transcript || 'Waiting for a voice command...';
+        }
+
+        if (transcriptEl) {
+            transcriptEl.textContent = voiceTranscript || 'Press Start Listening and say something like "deep work for 2 hours".';
+        }
+
+        if (statusEl) {
+            statusEl.textContent = voiceStatusMessage;
+            statusEl.className = voiceListening
+                ? 'text-xs text-emerald-400'
+                : 'text-xs text-dynamic-variant';
+        }
+
+        if (micBtn) {
+            micBtn.disabled = voiceListening;
+            micBtn.classList.toggle('opacity-60', voiceListening);
+            micBtn.classList.toggle('pointer-events-none', voiceListening);
+        }
+
+        if (stopBtn) {
+            stopBtn.disabled = !voiceListening;
+            stopBtn.classList.toggle('opacity-40', !voiceListening);
+            stopBtn.classList.toggle('pointer-events-none', !voiceListening);
+        }
+    }
+
+    async function refreshVoicePolicyState() {
+        try {
+            voicePolicyState = await ipcRenderer.invoke('voice-command-state');
+            renderVoicePolicyUI();
+        } catch (error) {
+            console.error('Failed to load voice policy state:', error);
+        }
+    }
+
+    async function submitVoiceCommand(transcript) {
+        const cleaned = String(transcript || '').trim();
+        if (!cleaned) return;
+
+        voiceTranscript = cleaned;
+        voiceStatusMessage = 'Applying command...';
+        renderVoicePolicyUI();
+
+        try {
+            const result = await ipcRenderer.invoke('voice-command-apply', cleaned);
+            if (!result?.ok) {
+                voiceStatusMessage = result?.error || 'That command could not be applied.';
+                renderVoicePolicyUI();
+                return;
+            }
+
+            voicePolicyState = result.state || voicePolicyState;
+            voiceStatusMessage = result.summary || 'Command applied.';
+            renderVoicePolicyUI();
+        } catch (error) {
+            console.error('Failed to apply voice command:', error);
+            voiceStatusMessage = `Failed to apply command: ${error.message}`;
+            renderVoicePolicyUI();
+        }
+    }
+
+
+
+    function attachVoiceCommandListeners() {
+        if (attachVoiceCommandListeners.initialized) {
+            renderVoicePolicyUI();
+            return;
+        }
+        attachVoiceCommandListeners.initialized = true;
+
+        const widgetToggle = document.getElementById('voice-widget-toggle');
+        const widgetClose = document.getElementById('voice-widget-close');
+        const micBtn = document.getElementById('voice-mic-btn');
+        const stopBtn = document.getElementById('voice-stop-btn');
+        const runBtn = document.getElementById('voice-run-btn');
+        const clearBtn = document.getElementById('voice-clear-btn');
+        const input = document.getElementById('voice-command-input');
+
+        widgetToggle?.addEventListener('click', () => {
+            voiceWidgetOpen = !voiceWidgetOpen;
+            renderVoicePolicyUI();
+        });
+
+        widgetClose?.addEventListener('click', () => {
+            voiceWidgetOpen = false;
+            renderVoicePolicyUI();
+        });
+
+        micBtn?.addEventListener('click', async () => {
+            if (voiceListening) return;
+
+            voiceWidgetOpen = true;
+            voiceTranscript = '';
+            voiceStatusMessage = 'Requesting microphone...';
+            renderVoicePolicyUI();
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                voiceMediaRecorder = new MediaRecorder(stream);
+                voiceAudioChunks = [];
+
+                voiceMediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        voiceAudioChunks.push(event.data);
+                    }
+                };
+
+                voiceMediaRecorder.onstop = async () => {
+                    voiceListening = false;
+                    const blob = new Blob(voiceAudioChunks, { type: voiceMediaRecorder.mimeType || 'audio/webm' });
+                    
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    if (blob.size === 0) {
+                        voiceStatusMessage = 'No audio captured. Try typing your command instead.';
+                        renderVoicePolicyUI();
+                        return;
+                    }
+
+                    voiceStatusMessage = 'Transcribing voice...';
+                    renderVoicePolicyUI();
+
+                    try {
+                        const buffer = await blob.arrayBuffer();
+                        const result = await ipcRenderer.invoke('voice-command-transcribe', {
+                            audioBytes: new Uint8Array(buffer),
+                            mimeType: blob.type
+                        });
+
+                        if (result.ok && result.transcript) {
+                            submitVoiceCommand(result.transcript);
+                        } else {
+                            voiceStatusMessage = result.error || 'Failed to transcribe command.';
+                            renderVoicePolicyUI();
+                        }
+                    } catch (err) {
+                        voiceStatusMessage = 'Transcription error: ' + err.message;
+                        renderVoicePolicyUI();
+                    }
+                };
+
+                voiceMediaRecorder.start();
+                voiceListening = true;
+                voiceStatusMessage = 'Listening... Speak now and press Stop.';
+                renderVoicePolicyUI();
+
+            } catch (error) {
+                voiceStatusMessage = `Microphone access denied: ${error.message}`;
+                renderVoicePolicyUI();
+            }
+        });
+
+        stopBtn?.addEventListener('click', () => {
+            if (voiceMediaRecorder && voiceMediaRecorder.state !== 'inactive') {
+                voiceMediaRecorder.stop();
+            }
+        });
+
+        runBtn?.addEventListener('click', () => {
+            voiceWidgetOpen = true;
+            submitVoiceCommand(input?.value || '');
+        });
+
+        input?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitVoiceCommand(input.value || '');
+            }
+        });
+
+        clearBtn?.addEventListener('click', async () => {
+            voiceWidgetOpen = true;
+            voiceStatusMessage = 'Returning to adaptive mode...';
+            renderVoicePolicyUI();
+            try {
+                voicePolicyState = await ipcRenderer.invoke('voice-command-clear');
+                voiceStatusMessage = 'Returned to the normal adaptive notification flow.';
+                renderVoicePolicyUI();
+            } catch (error) {
+                voiceStatusMessage = `Failed to clear the override: ${error.message}`;
+                renderVoicePolicyUI();
+            }
+        });
+
+        renderVoicePolicyUI();
+    }
+
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetId = btn.getAttribute('data-target');
@@ -321,6 +610,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(() => card.style.display = 'none', 300);
                 });
             });
+
+            renderVoicePolicyUI();
         }
 
         if (viewName === 'test-notification') {
@@ -719,6 +1010,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateVsCodeContextState(payload, snap);
         addFeedCard(payload);
         updateCognitiveUI(snap);
+    });
+
+    ipcRenderer.on('voice-policy-updated', (_, payload) => {
+        voicePolicyState = payload || voicePolicyState;
+        renderVoicePolicyUI();
     });
 
     // 5. Email Task Intelligence Notifications
@@ -1586,5 +1882,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Default Initialization
+    attachVoiceCommandListeners();
+    refreshVoicePolicyState();
+    setInterval(renderVoicePolicyUI, 30000);
     loadView('dashboard');
 });

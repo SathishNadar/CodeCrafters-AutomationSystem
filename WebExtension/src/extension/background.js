@@ -118,6 +118,42 @@ async function flushQueuedNotifications(metadata = {}) {
   });
 }
 
+async function handleVoicePolicyMessage(policy) {
+  const previousOverride = decisions.getManualOverride();
+
+  if (policy?.active) {
+    decisions.setManualOverride(policy);
+  } else {
+    decisions.clearManualOverride();
+  }
+
+  const nextOverride = decisions.getManualOverride();
+  if (previousOverride && !nextOverride) {
+    await flushQueuedNotifications({
+      trigger: 'voice-policy-ended',
+      fromState: latestContextState.state,
+      toState: latestContextState.state,
+      focusDomain: latestContextState.currentDomain,
+    });
+  }
+
+  await safeSendMessage({
+    source: 'voicePolicy',
+    type: 'VOICE_POLICY_STATE',
+    policy: nextOverride
+      ? {
+          ...policy,
+          active: true,
+        }
+      : {
+          active: false,
+          mode: 'normal',
+          label: 'Adaptive Mode',
+        },
+    receivedAt: Date.now(),
+  });
+}
+
 function buildWsStatePayload(contextState, vector, trigger) {
   return {
     type: 'STATE_CHANGE',
@@ -228,6 +264,13 @@ function ensureWebSocketBridge() {
           vector: latestVector,
           queueDepth: decisions.getQueueDepth(),
           emittedAt: Date.now(),
+        });
+        return;
+      }
+
+      if (message.type === 'VOICE_POLICY_STATE') {
+        schedulePipeline(async () => {
+          await handleVoicePolicyMessage(message.policy);
         });
       }
     },

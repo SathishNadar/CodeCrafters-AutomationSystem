@@ -5,11 +5,17 @@
 export class DecisionEngine {
   #queue = [];
   #queueLimit = 80;
+  #manualOverride = null;
 
   decide(notification, context) {
     const priority = this.#scorePriority(notification);
-    const action = this.#applyRules(priority, context.state);
-    const reason = this.#buildReason(action, priority, context);
+    const override = this.#getActiveOverride();
+    const action = override
+      ? this.#applyManualOverride(priority, override)
+      : this.#applyRules(priority, context.state);
+    const reason = override
+      ? this.#buildManualReason(action, priority, context, override)
+      : this.#buildReason(action, priority, context);
 
     if (action === 'DELAY' || action === 'SUPPRESS') {
       this.#enqueue(notification, priority, action, context, reason);
@@ -23,6 +29,13 @@ export class DecisionEngine {
       reason,
       queueDepth: this.#queue.length,
       decidedAt: Date.now(),
+      manualPolicy: override
+        ? {
+            mode: override.mode,
+            label: override.label,
+            endsAt: override.endsAt,
+          }
+        : null,
     };
   }
 
@@ -44,8 +57,40 @@ export class DecisionEngine {
     return this.#queue.length;
   }
 
+  getManualOverride() {
+    return this.#getActiveOverride();
+  }
+
+  setManualOverride(policy) {
+    if (!policy?.active) {
+      this.#manualOverride = null;
+      return;
+    }
+
+    this.#manualOverride = {
+      active: true,
+      mode: policy.mode ?? 'priority_only',
+      label: policy.label ?? 'Manual Focus Mode',
+      endsAt: Number(policy.endsAt) || (Date.now() + 60 * 60 * 1000),
+    };
+  }
+
+  clearManualOverride() {
+    this.#manualOverride = null;
+  }
+
   reset() {
     this.#queue = [];
+    this.#manualOverride = null;
+  }
+
+  #getActiveOverride() {
+    if (!this.#manualOverride?.active) return null;
+    if ((this.#manualOverride.endsAt ?? 0) <= Date.now()) {
+      this.#manualOverride = null;
+      return null;
+    }
+    return this.#manualOverride;
   }
 
   #scorePriority(n) {
@@ -135,6 +180,11 @@ export class DecisionEngine {
     return matrix[priority]?.[normalizedState] ?? 'DELAY';
   }
 
+  #applyManualOverride(priority, override) {
+    if (override.mode === 'mute_all') return 'DELAY';
+    return priority === 'CRITICAL' || priority === 'HIGH' ? 'SHOW' : 'DELAY';
+  }
+
   #normalizeState(state) {
     if (state === 'deep_focus' || state === 'focused') return 'active_focus';
     if (state === 'in_meeting') return 'passive_focus';
@@ -179,5 +229,18 @@ export class DecisionEngine {
     }
 
     return `${priority} priority suppressed during ${context.state}${domainLabel}.`;
+  }
+
+  #buildManualReason(action, priority, context, override) {
+    const untilLabel = new Date(override.endsAt).toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    if (action === 'SHOW') {
+      return `${priority} priority allowed through ${override.label} until ${untilLabel}.`;
+    }
+
+    return `${priority} priority delayed by ${override.label} until ${untilLabel} while you stay in ${context.state}.`;
   }
 }

@@ -147,6 +147,73 @@
         </div>
     </div>
 
+    <div id="voice-widget" class="voice-widget">
+        <button id="voice-widget-toggle" class="voice-widget-toggle" type="button" aria-label="Open voice command panel" aria-expanded="false">
+            <span class="material-symbols-outlined">graphic_eq</span>
+        </button>
+
+        <div id="voice-widget-panel" class="voice-widget-panel hidden">
+            <div class="voice-widget-header">
+                <div>
+                    <p class="panel-kicker">Quick Command</p>
+                    <h3 class="panel-title text-dynamic text-lg">Voice Control</h3>
+                </div>
+                <button id="voice-widget-close" class="voice-widget-close" type="button" aria-label="Close voice command panel">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span id="voice-policy-chip" class="text-[11px] font-bold px-3 py-1 rounded-full bg-[var(--surface-high)] text-dynamic-variant border border-[var(--outline-var)]">Adaptive Mode</span>
+                    <span id="voice-policy-window" class="text-[11px] text-dynamic-variant">No timed override is active right now.</span>
+                </div>
+
+                <div class="voice-widget-actions">
+                    <button id="voice-mic-btn" class="voice-action-btn voice-action-primary" type="button">
+                        <span class="material-symbols-outlined text-[18px]">mic</span>
+                        Start Listening
+                    </button>
+                    <button id="voice-stop-btn" class="voice-action-btn voice-action-secondary opacity-40 pointer-events-none" type="button">
+                        <span class="material-symbols-outlined text-[18px]">stop_circle</span>
+                        Stop
+                    </button>
+                    <button id="voice-clear-btn" class="voice-action-btn voice-action-secondary" type="button">
+                        <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                        Reset
+                    </button>
+                </div>
+
+                <div class="voice-widget-card">
+                    <p class="text-[11px] uppercase tracking-[0.18em] text-dynamic-variant mb-2">Latest Transcript</p>
+                    <p id="voice-transcript" class="text-sm text-dynamic leading-relaxed min-h-[48px]">Press Start Listening and say something like "deep work for 2 hours".</p>
+                </div>
+
+                <div class="voice-widget-card">
+                    <p class="text-[11px] uppercase tracking-[0.18em] text-dynamic-variant mb-2">Active Policy</p>
+                    <p id="voice-policy-copy" class="text-sm text-dynamic leading-relaxed">Notifications are following the live context engine.</p>
+                    <p id="voice-policy-transcript" class="text-xs text-dynamic-variant mt-3">Waiting for a voice command...</p>
+                </div>
+
+                <div class="voice-widget-compose">
+                    <input id="voice-command-input" type="text" class="voice-widget-input" placeholder='Typed fallback: "priority only for 30 minutes"' />
+                    <button id="voice-run-btn" class="voice-action-btn voice-action-accent" type="button">
+                        <span class="material-symbols-outlined text-[18px]">send</span>
+                        Run
+                    </button>
+                </div>
+
+                <div class="voice-chip-row">
+                    <span class="voice-example-chip">Deep work for 2 hours</span>
+                    <span class="voice-example-chip">Mute all until 5 PM</span>
+                    <span class="voice-example-chip">Resume normal mode</span>
+                </div>
+
+                <p id="voice-command-status" class="text-xs text-dynamic-variant">Use your mic or type a command to control interruptions.</p>
+            </div>
+        </div>
+    </div>
+
     <script src="renderer.js"></script>
 </body>
 </html>

@@ -18,6 +18,8 @@ const {
 const WS_PORT = 8080;
 let _mainWindow = null;
 let _lastPipelineForward = 0;
+let _voicePolicyState = null;
+const _clients = new Set();
 
 function initWsBridge(mainWindow) {
     _mainWindow = mainWindow;
@@ -42,9 +44,17 @@ function initWsBridge(mainWindow) {
 
     wss.on('connection', (socket) => {
         console.log('[WsBridge] Extension connected');
+        _clients.add(socket);
 
         // Notify renderer that extension is connected
         send({ type: 'EXTENSION_CONNECTED', ts: Date.now() });
+        if (_voicePolicyState) {
+            socket.send(JSON.stringify({
+                type: 'VOICE_POLICY_STATE',
+                policy: _voicePolicyState,
+                ts: Date.now(),
+            }));
+        }
 
         // Send PING so the extension responds immediately with its state
         socket.send(JSON.stringify({ type: 'PING', ts: Date.now() }));
@@ -62,10 +72,12 @@ function initWsBridge(mainWindow) {
 
         socket.on('close', () => {
             console.log('[WsBridge] Extension disconnected');
+            _clients.delete(socket);
             send({ type: 'EXTENSION_DISCONNECTED', ts: Date.now() });
         });
 
         socket.on('error', (err) => {
+            _clients.delete(socket);
             console.warn('[WsBridge] Socket error:', err.message);
         });
     });
@@ -125,6 +137,21 @@ function send(payload) {
     }
 }
 
+function broadcastVoicePolicy(policy) {
+    _voicePolicyState = policy;
+    const message = JSON.stringify({
+        type: 'VOICE_POLICY_STATE',
+        policy,
+        ts: Date.now(),
+    });
+
+    for (const client of _clients) {
+        if (client.readyState === 1) {
+            client.send(message);
+        }
+    }
+}
+
 /** Call this when the Electron app is closing to flush the daily summary */
 async function closeBridge() {
     try {
@@ -132,4 +159,4 @@ async function closeBridge() {
     } catch {}
 }
 
-module.exports = { initWsBridge, closeBridge };
+module.exports = { initWsBridge, closeBridge, broadcastVoicePolicy };

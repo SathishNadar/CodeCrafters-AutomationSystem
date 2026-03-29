@@ -3,9 +3,12 @@ const path = require('node:path');
 const http = require('http');
 const fs = require('node:fs');
 const https = require('node:https');
+const { AttentionPolicyManager } = require('./attention-policy-manager');
+const { parseVoiceCommand } = require('./voice-command-parser');
 
 let mainWindow;
 let firestoreModule;
+const attentionPolicyManager = new AttentionPolicyManager();
 
 // Lazy-load Firestore (dynamic import for ESM compat)
 async function getFirestore() {
@@ -88,6 +91,64 @@ function getGoogleOAuthConfig() {
         clientSecret: env.GOOGLE_CLIENT_SECRET,
         redirectUri: env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/callback'
     };
+}
+
+function getVoiceTranscriptionApiKey() {
+    const envCandidates = [
+        path.join(__dirname, '..', 'email-notifier-service', '.env'),
+        path.join(__dirname, '..', 'whatsapp-monitor-service', '.env'),
+    ];
+
+    for (const envPath of envCandidates) {
+        const env = readEnvFile(envPath);
+        if (env.HF_API_KEY) return env.HF_API_KEY;
+    }
+
+    return null;
+}
+
+async function transcribeVoiceAudio({ audioBytes, mimeType, fileName } = {}) {
+    console.log('[main.js] transcribeVoiceAudio started. audioBytes type:', typeof audioBytes, 'isArray:', Array.isArray(audioBytes), 'isBuffer:', Buffer.isBuffer(audioBytes), 'isUint8Array:', audioBytes instanceof Uint8Array);
+    const apiKey = getVoiceTranscriptionApiKey();
+    if (!apiKey) {
+        console.error('[main.js] HF_API_KEY missing');
+        throw new Error('HF_API_KEY is missing. Add it to email-notifier-service/.env or whatsapp-monitor-service/.env.');
+    }
+
+    const normalizedBytes = audioBytes instanceof Uint8Array
+        ? audioBytes
+        : Buffer.isBuffer(audioBytes) ? new Uint8Array(audioBytes) : new Uint8Array(Array.isArray(audioBytes) ? audioBytes : []);
+
+    console.log('[main.js] normalizedBytes length:', normalizedBytes.byteLength);
+
+    if (!normalizedBytes.byteLength) {
+        console.error('[main.js] No audio data captured');
+        throw new Error('No audio data was captured.');
+    }
+
+    console.log('[main.js] Sending data to HF via official client...');
+    const { HfInference } = require('@huggingface/inference');
+    const hf = new HfInference(apiKey);
+    
+    const resolvedMimeType = typeof mimeType === 'string' && mimeType.trim()
+        ? mimeType.trim()
+        : 'audio/webm';
+
+    let result;
+    try {
+        result = await hf.automaticSpeechRecognition({
+            model: 'openai/whisper-large-v3-turbo',
+            data: new Blob([normalizedBytes], { type: resolvedMimeType }),
+            provider: 'hf-inference',
+        });
+    } catch (e) {
+        console.error('[main.js] Error from HF client:', e.message);
+        throw e;
+    }
+
+    const finalResult = String(result?.text || '').trim();
+    console.log('[main.js] Final extracted transcript:', finalResult);
+    return finalResult;
 }
 
 function httpsRequest(url, options = {}, body = null) {
@@ -314,7 +375,14 @@ const { initEmailMonitor } = require('./email-monitor');
 const { initWhatsAppMonitor } = require('./whatsapp-monitor');
 
 // --- WebExtension WebSocket Bridge (port 8080) ---
-const { initWsBridge, closeBridge } = require('./ws-bridge');
+const { initWsBridge, closeBridge, broadcastVoicePolicy } = require('./ws-bridge');
+
+attentionPolicyManager.subscribe((policyState) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('voice-policy-updated', policyState);
+    }
+    broadcastVoicePolicy(policyState);
+});
 
 // --- IPC: Browser Firestore queries from renderer ---
 const browserFs = require('./browser-firestore');
@@ -340,16 +408,67 @@ ipcMain.handle('save-vips', async (_, vipsString) => {
     }
 });
 
+ipcMain.handle('voice-command-state', async () => {
+    return attentionPolicyManager.getState();
+});
+
+ipcMain.handle('voice-command-clear', async () => {
+    return attentionPolicyManager.clear('manual');
+});
+
+ipcMain.handle('voice-command-apply', async (_, transcript) => {
+    const parsed = parseVoiceCommand(transcript);
+    if (!parsed.ok) {
+        return parsed;
+    }
+
+    if (parsed.kind === 'clear') {
+        return {
+            ok: true,
+            kind: 'clear',
+            summary: parsed.summary,
+            state: attentionPolicyManager.clear('voice'),
+        };
+    }
+
+    return {
+        ok: true,
+        kind: 'activate',
+        summary: parsed.summary,
+        parsed,
+        state: attentionPolicyManager.activate(parsed),
+    };
+});
+
+ipcMain.handle('voice-command-transcribe', async (_, payload) => {
+    console.log('[main.js] Received IPC voice-command-transcribe');
+    try {
+        const transcript = await transcribeVoiceAudio(payload || {});
+        console.log('[main.js] Transcript successful');
+        return {
+            ok: true,
+            transcript,
+        };
+    } catch (error) {
+        console.error('[main.js] Transcript failed:', error.message);
+        return {
+            ok: false,
+            error: error.message || 'Voice transcription failed.',
+        };
+    }
+});
+
 // --- App Lifecycle ---
 app.whenReady().then(() => {
     createWindow();
 
     // Start background email monitoring
-    initEmailMonitor(mainWindow);
-    initWhatsAppMonitor(mainWindow);
+    initEmailMonitor(mainWindow, attentionPolicyManager);
+    initWhatsAppMonitor(mainWindow, attentionPolicyManager);
 
     // Start WebExtension WebSocket bridge
     initWsBridge(mainWindow);
+    broadcastVoicePolicy(attentionPolicyManager.getState());
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
