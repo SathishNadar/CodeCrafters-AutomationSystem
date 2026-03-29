@@ -31,7 +31,13 @@ const createWindow = () => {
         }
     });
 
-    mainWindow.loadURL('http://localhost:3000/');
+    // Wait slightly for the local server to start before loading URL
+    setTimeout(() => {
+        mainWindow.loadURL('http://localhost:3000/').catch(() => {
+            console.log('[main] Initial load failed, retrying...');
+            setTimeout(() => mainWindow.loadURL('http://localhost:3000/'), 2000);
+        });
+    }, 500);
 };
 
 function getContentType(filePath) {
@@ -377,6 +383,11 @@ ipcMain.handle('get-last-working-context', async () => {
 ipcMain.handle('get-week-summaries', async () => {
     const fs = await getFirestore();
     return fs.getWeekSummaries(7);
+});
+
+ipcMain.handle('get-browser-week-summaries', async () => {
+    const { getBrowserWeekSummaries } = require('./browser-firestore');
+    return getBrowserWeekSummaries(7);
 });
 
 ipcMain.handle('google-login', async () => {

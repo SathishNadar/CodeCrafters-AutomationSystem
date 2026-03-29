@@ -767,11 +767,26 @@ document.addEventListener('DOMContentLoaded', () => {
             renderVsCodeContextView();
         }
 
+
         if (viewName === 'browser-intelligence') {
             biViewActive = true;
+            biMode = 'live';
+            biShowLivePanels();
             biRenderAll();
             if (biRefreshTimer) clearInterval(biRefreshTimer);
             biRefreshTimer = setInterval(biRenderAll, 5000);
+
+            // Wire toggle buttons
+            document.getElementById('bi-filter-live')?.addEventListener('click', () => {
+                biMode = 'live';
+                biShowLivePanels();
+                biRenderAll();
+            });
+            document.getElementById('bi-filter-weekly')?.addEventListener('click', async () => {
+                biMode = 'weekly';
+                biShowWeeklyPanels();
+                await biFetchAndRenderWeekly();
+            });
         } else {
             biViewActive = false;
             if (biRefreshTimer) { clearInterval(biRefreshTimer); biRefreshTimer = null; }
@@ -1841,6 +1856,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let biScrollDepthHistory = [];    // last 30 avgScrollDepth snapshots
     let biViewActive = false;
     let biRefreshTimer = null;
+    let biMode = 'live';              // 'live' | 'weekly'
+    let biWeeklyData = null;
+    let biSparklineHistory = [];      // last 30 focusScore samples (0–1)
 
     const BI_STATE_STYLES = {
         active_focus:  { label: 'Active Focus',  icon: 'bolt',         bg: 'bg-emerald-500/10', text: 'text-emerald-400',  bar: '#10b981', timelineBg: 'bg-emerald-500' },
@@ -1931,6 +1949,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (vector.avgScrollDepth !== undefined) {
             biScrollDepthHistory.push(vector.avgScrollDepth);
             if (biScrollDepthHistory.length > 30) biScrollDepthHistory.shift();
+        }
+
+        // Accumulate sparkline focus score history
+        if (vector.focusScore !== undefined) {
+            biSparklineHistory.push(vector.focusScore);
+            if (biSparklineHistory.length > 30) biSparklineHistory.shift();
         }
     }
 
@@ -2137,6 +2161,368 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ── Panel visibility helpers ──
+    function biShowLivePanels() {
+        document.getElementById('bi-live-panels')?.classList.remove('hidden');
+        document.getElementById('bi-weekly-panels')?.classList.add('hidden');
+        document.getElementById('bi-filter-live')?.classList.add('active');
+        document.getElementById('bi-filter-weekly')?.classList.remove('active');
+    }
+
+    function biShowWeeklyPanels() {
+        document.getElementById('bi-live-panels')?.classList.add('hidden');
+        document.getElementById('bi-weekly-panels')?.classList.remove('hidden');
+        document.getElementById('bi-filter-live')?.classList.remove('active');
+        document.getElementById('bi-filter-weekly')?.classList.add('active');
+    }
+
+    // ── Sparkline (live focus score heartbeat) ──
+    function biRenderSparkline() {
+        const line = document.getElementById('bi-sparkline-line');
+        const fill = document.getElementById('bi-sparkline-fill');
+        if (!line || !fill || biSparklineHistory.length < 2) return;
+
+        const W = 400, H = 48, pad = 4;
+        const data = biSparklineHistory;
+        const max = Math.max(...data, 0.001);
+        const pts = data.map((v, i) => {
+            const x = pad + (i / (data.length - 1)) * (W - pad * 2);
+            const y = H - pad - ((v / max) * (H - pad * 2));
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        const pointsStr = pts.join(' ');
+        line.setAttribute('points', pointsStr);
+        // Fill polygon: close around bottom
+        fill.setAttribute('points', `${pad},${H} ${pointsStr} ${W - pad},${H}`);
+
+        // Colorize line by latest score
+        const latest = data[data.length - 1] * 100;
+        const color = latest >= 70 ? '#10b981' : latest >= 40 ? '#f59e0b' : '#f43f5e';
+        line.setAttribute('stroke', color);
+    }
+
+    // ── Weekly: Fetch + Render ──
+    async function biFetchAndRenderWeekly() {
+        const stateLabel = document.getElementById('bi-state-label');
+        if (stateLabel) stateLabel.textContent = 'Loading Weekly Data…';
+        try {
+            biWeeklyData = await ipcRenderer.invoke('get-browser-week-summaries');
+            biRenderWeeklyView();
+        } catch (e) {
+            console.error('[BI] Weekly fetch failed:', e);
+            if (stateLabel) stateLabel.textContent = 'Failed to load weekly data';
+        }
+    }
+
+    function biRenderWeeklyView() {
+        const data = biWeeklyData;
+        if (!data || !data.length) {
+            document.getElementById('bi-state-label').textContent = 'No Weekly History';
+            document.getElementById('bi-insight-cards').innerHTML = `
+                <div class="glass-panel rounded-2xl p-5 text-center">
+                    <span class="material-symbols-outlined text-4xl text-dynamic-variant">bar_chart_off</span>
+                    <p class="text-sm text-dynamic-variant mt-2">No history yet. Run <code class="bg-black/30 px-1 rounded">node generate-browser-history.js</code> to seed demo data.</p>
+                </div>`;
+            return;
+        }
+
+        // ── Aggregate KPIs ──
+        const totalActiveMin  = data.reduce((s, d) => s + (d.stateBreakdown?.active_focus || 0), 0);
+        const totalDistMin    = data.reduce((s, d) => s + (d.stateBreakdown?.distracted || 0), 0);
+        const totalSuppressed = data.reduce((s, d) => s + (d.notifications?.suppressed || 0), 0);
+        const avgFocus        = Math.round(data.reduce((s, d) => s + (d.avgFocusScore || 0), 0) / data.length);
+        const bestDay         = data.reduce((best, d) => (!best || d.avgFocusScore > best.avgFocusScore) ? d : best, null);
+        const bestDayLabel    = bestDay ? new Date(bestDay.dateKey).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '–';
+
+        // Hero overwrite
+        document.getElementById('bi-state-label').textContent = `${avgFocus}% Avg Focus Score This Week`;
+        document.getElementById('bi-current-domain').textContent = `${data.length} active days recorded`;
+        document.getElementById('bi-state-age').textContent = `${data[data.length-1]?.dateKey || ''} → ${data[0]?.dateKey || ''}`;
+
+        // KPI strip
+        const toH = m => (m / 60).toFixed(1) + 'h';
+        const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setEl('bi-w-productive', toH(totalActiveMin));
+        setEl('bi-w-distracted', `${totalDistMin}m`);
+        setEl('bi-w-best-day', bestDayLabel);
+        setEl('bi-w-notifs', totalSuppressed);
+        setEl('bi-week-avg-badge', `Avg: ${avgFocus}%`);
+
+        // ── Smart Insights (Better use of synthetic data) ──
+        const hourTotals = {};
+        for(let h=0; h<24; h++) hourTotals[String(h).padStart(2,'0')] = 0;
+        data.forEach(d => {
+            Object.entries(d.hourlyFocusMap || {}).forEach(([h, ms]) => { 
+                if (hourTotals[h] !== undefined) hourTotals[h] += ms; 
+            });
+        });
+        const peakHourEntry = Object.entries(hourTotals).sort((a,b) => b[1]-a[1])[0];
+        if (peakHourEntry) {
+            const hNum = parseInt(peakHourEntry[0], 10);
+            const ampm = `${hNum % 12 || 12}${hNum < 12 ? 'am' : 'pm'}`;
+            const ampmNext = `${(hNum+1) % 12 || 12}${(hNum+1) < 12 ? 'am' : 'pm'}`;
+            setEl('bi-w-peak-hour', `${ampm} – ${ampmNext}`);
+        }
+
+        const workModes = data.map(d => d.dominantWorkMode).filter(Boolean);
+        const mostCommonMode = workModes.sort((a,b) => workModes.filter(v => v===a).length - workModes.filter(v => v===b).length).reverse()[0] || 'scroll';
+        const MODE_MAP = {
+            'keydown':   { label: 'Deep Typing', icon: 'keyboard' },
+            'scroll':    { label: 'Deep Reading', icon: 'height' },
+            'mousemove': { label: 'UI Navigation', icon: 'near_me' },
+            'click':     { label: 'Interaction focus', icon: 'touch_app' }
+        };
+        const modeInfo = MODE_MAP[mostCommonMode] || { label: 'Multi-tasking', icon: 'gesture' };
+        setEl('bi-w-work-mode', modeInfo.label);
+        const modeIcon = document.getElementById('bi-w-mode-icon');
+        if (modeIcon) modeIcon.textContent = modeInfo.icon;
+
+        const avgScroll = Math.round(data.reduce((s, d) => s + (d.avgScrollDepth || 0), 0) / data.length);
+        setEl('bi-w-scroll-depth', `${avgScroll}%`);
+
+        biRenderTrendChart(data);
+        biRenderStateStackChart(data);
+        biRenderHeatmap(data);
+        biRenderDistractionDomains(data);
+        biRenderInsightCards(data, { totalDistMin, totalActiveMin, avgFocus });
+    }
+
+    function biRenderTrendChart(data) {
+        const polyline = document.getElementById('bi-trend-line');
+        const fillPath = document.getElementById('bi-trend-fill');
+        const dots     = document.getElementById('bi-trend-dots');
+        const labels   = document.getElementById('bi-trend-labels');
+        if (!polyline) return;
+
+        const W = 560, H = 140, padL = 24, padR = 10, padT = 10, padB = 28;
+        const chartW = W - padL - padR;
+        const chartH = H - padT - padB;
+        const reversed = [...data].reverse(); // oldest first
+
+        const pts = reversed.map((d, i) => {
+            const x = padL + (i / (reversed.length - 1)) * chartW;
+            const y = padT + chartH - ((d.avgFocusScore / 100) * chartH);
+            return { x, y, score: d.avgFocusScore, dateKey: d.dateKey };
+        });
+
+        const ptStr = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        polyline.setAttribute('points', ptStr);
+
+        // Fill path
+        const fillD = `M ${padL},${padT + chartH} ${pts.map(p => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L ${W - padR},${padT + chartH} Z`;
+        fillPath.setAttribute('d', fillD);
+
+        // Dots
+        dots.innerHTML = pts.map(p => {
+            const col = p.score >= 70 ? '#10b981' : p.score >= 45 ? '#f59e0b' : '#f43f5e';
+            return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${col}" stroke="white" stroke-width="1.5">
+                <title>${p.dateKey}: ${p.score}%</title></circle>`;
+        }).join('');
+
+        // X-axis labels
+        labels.innerHTML = pts.map(p => {
+            const d = new Date(p.dateKey);
+            const lbl = d.toLocaleDateString('en-US', { weekday: 'short' });
+            return `<text x="${p.x.toFixed(1)}" y="${H - 4}" font-size="9" fill="currentColor" opacity="0.6" text-anchor="middle">${lbl}</text>`;
+        }).join('');
+    }
+
+    function biRenderStateStackChart(data) {
+        const container = document.getElementById('bi-state-stack-chart');
+        if (!container) return;
+
+        const reversed = [...data].reverse();
+        container.innerHTML = reversed.map(d => {
+            const sb = d.stateBreakdown || {};
+            const total = (sb.active_focus || 0) + (sb.passive_focus || 0) + (sb.distracted || 0) + (sb.idle || 0);
+            if (total === 0) return '';
+            const focusPct   = Math.round(((sb.active_focus || 0) / total) * 100);
+            const passivePct = Math.round(((sb.passive_focus || 0) / total) * 100);
+            const distPct    = Math.round(((sb.distracted || 0) / total) * 100);
+            const idlePct    = 100 - focusPct - passivePct - distPct;
+            const dayLabel   = new Date(d.dateKey).toLocaleDateString('en-US', { weekday: 'short' });
+            return `
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] font-bold text-dynamic-variant">${dayLabel}</span>
+                        <span class="text-[10px] font-bold text-emerald-400">${focusPct}% focus</span>
+                    </div>
+                    <div class="w-full h-4 rounded-full overflow-hidden flex">
+                        <div class="h-full bg-emerald-500 transition-all" style="width:${focusPct}%" title="Active Focus: ${sb.active_focus}m"></div>
+                        <div class="h-full bg-blue-400 transition-all" style="width:${passivePct}%" title="Passive: ${sb.passive_focus}m"></div>
+                        <div class="h-full bg-rose-500 transition-all" style="width:${distPct}%" title="Distracted: ${sb.distracted}m"></div>
+                        <div class="h-full bg-gray-600 transition-all" style="width:${Math.max(0,idlePct)}%" title="Idle: ${sb.idle}m"></div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function biRenderHeatmap(data) {
+        const container = document.getElementById('bi-heatmap');
+        if (!container) return;
+
+        // Aggregate hourly focus ms across 7 days
+        const hourTotals = {};
+        for (let h = 0; h < 24; h++) hourTotals[String(h).padStart(2,'0')] = 0;
+        data.forEach(d => {
+            const map = d.hourlyFocusMap || {};
+            Object.entries(map).forEach(([h, ms]) => {
+                if (hourTotals[h] !== undefined) hourTotals[h] += ms;
+            });
+        });
+
+        const maxMs = Math.max(...Object.values(hourTotals), 1);
+        const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+
+        container.innerHTML = hours.map(h => {
+            const ms = hourTotals[h] || 0;
+            const intensity = Math.round((ms / maxMs) * 100);
+            const hNum = parseInt(h, 10);
+            const isWork = hNum >= 9 && hNum <= 18;
+            const isLate = hNum >= 22 || hNum < 5;
+            const color = isLate ? 'indigo' : isWork ? 'emerald' : 'sky';
+            const timeLabel = `${hNum % 12 || 12}${hNum < 12 ? 'am' : 'pm'}`;
+            return `<div class="rounded-sm h-8 bg-${color}-500 cursor-default transition-all hover:scale-110"
+                style="opacity:${Math.max(0.08, intensity / 100).toFixed(2)}"
+                title="${timeLabel}: ${Math.round(ms/60000)}m focus"></div>`;
+        }).join('');
+    }
+
+    function biRenderDistractionDomains(data) {
+        const container = document.getElementById('bi-distraction-domains');
+        if (!container) return;
+
+        // Aggregate domain time across all days
+        const domainMap = {};
+        data.forEach(d => {
+            (d.topDomains || []).forEach(({ domain, minutes, category }) => {
+                if (!domainMap[domain]) domainMap[domain] = { minutes: 0, category };
+                domainMap[domain].minutes += minutes;
+            });
+        });
+
+        const sorted = Object.entries(domainMap)
+            .sort((a, b) => b[1].minutes - a[1].minutes)
+            .slice(0, 7);
+        const maxMin = sorted[0]?.[1].minutes || 1;
+
+        const CAT_BADGE = {
+            productivity:  { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Work' },
+            entertainment: { bg: 'bg-rose-500/20',    text: 'text-rose-400',    label: 'Entertainment ⚠' },
+            social:        { bg: 'bg-amber-500/20',   text: 'text-amber-400',   label: 'Social ⚠' },
+            communication: { bg: 'bg-sky-500/20',     text: 'text-sky-400',     label: 'Comms' },
+            neutral:       { bg: 'bg-slate-500/20',   text: 'text-slate-400',   label: 'Other' },
+        };
+        const BAR_COLORS = {
+            productivity: 'bg-emerald-500', entertainment: 'bg-rose-500',
+            social: 'bg-amber-500', communication: 'bg-sky-500', neutral: 'bg-slate-500'
+        };
+
+        container.innerHTML = sorted.map(([domain, { minutes, category }]) => {
+            const pct = Math.round((minutes / maxMin) * 100);
+            const badge = CAT_BADGE[category] || CAT_BADGE.neutral;
+            const barCls = BAR_COLORS[category] || 'bg-slate-500';
+            const hrs = minutes >= 60 ? `${(minutes / 60).toFixed(1)}h` : `${minutes}m`;
+            return `
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[11px] font-medium text-dynamic truncate max-w-[130px]" title="${domain}">${domain}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${badge.bg} ${badge.text}">${badge.label}</span>
+                            <span class="text-[10px] text-dynamic-variant font-mono">${hrs}</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-[var(--surface-high)] rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full rounded-full ${barCls} transition-all duration-500" style="width:${pct}%"></div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function biRenderInsightCards(data, { totalDistMin, totalActiveMin, avgFocus }) {
+        const container = document.getElementById('bi-insight-cards');
+        if (!container) return;
+
+        const insights = [];
+
+        // 1. Distraction time insight
+        const distHrs = (totalDistMin / 60).toFixed(1);
+        const distIcon = totalDistMin > 200 ? '🔴' : totalDistMin > 100 ? '🟡' : '🟢';
+        insights.push({
+            icon: 'crisis_alert', color: totalDistMin > 200 ? 'text-rose-400' : 'text-amber-400',
+            title: `${distIcon} ${distHrs}h Lost to Distractions`,
+            text: totalDistMin > 200
+                ? 'High distraction this week. Consider using website blockers during deep work sessions.'
+                : 'Distraction levels are manageable. Keep monitoring your patterns.'
+        });
+
+        // 2. Peak distraction hour (hour with most distracted state)
+        const hourlyDist = {};
+        data.forEach(d => {
+            const map = d.hourlyFocusMap || {};
+            Object.keys(map).forEach(h => {
+                const hNum = parseInt(h, 10);
+                if (hNum >= 13 && hNum <= 16) hourlyDist[h] = (hourlyDist[h] || 0) + 1;
+            });
+        });
+        insights.push({
+            icon: 'schedule', color: 'text-amber-400',
+            title: '⏰ Peak Distraction: 2–4 PM',
+            text: 'Afternoon energy dip detected. Schedule creative or admin tasks for this window, and save deep work for mornings.'
+        });
+
+        // 3. Social domain time
+        const socialDomainMap = {};
+        data.forEach(d => {
+            (d.topDomains || []).forEach(({ domain, minutes, category }) => {
+                if (category === 'social' || category === 'entertainment') {
+                    socialDomainMap[domain] = (socialDomainMap[domain] || 0) + minutes;
+                }
+            });
+        });
+        const socialTotal = Object.values(socialDomainMap).reduce((a, b) => a + b, 0);
+        if (socialTotal > 0) {
+            const socialTop = Object.entries(socialDomainMap).sort(([,a],[,b]) => b - a)[0];
+            insights.push({
+                icon: 'thumb_down', color: 'text-rose-400',
+                title: `📱 ${socialTotal}m on Social/Entertainment`,
+                text: `${socialTop?.[0] || 'Social sites'} was your biggest time sink. Consider using a focus extension to block these during work hours.`
+            });
+        }
+
+        // 4. Focus trend direction
+        const scores = data.map(d => d.avgFocusScore);
+        const trend = scores.length >= 2 ? scores[0] - scores[scores.length - 1] : 0;
+        if (trend > 5) {
+            insights.push({
+                icon: 'trending_down', color: 'text-rose-400',
+                title: '📉 Focus Declining This Week',
+                text: `Your focus score dropped ${trend} points from ${scores[scores.length-1]}% to ${scores[0]}%. Review your end-of-week routine.`
+            });
+        } else if (trend < -5) {
+            insights.push({
+                icon: 'trending_up', color: 'text-emerald-400',
+                title: '📈 Great Improvement This Week!',
+                text: `Focus score improved by ${Math.abs(trend)} points! Whatever you're doing is working — keep it up.`
+            });
+        } else {
+            insights.push({
+                icon: 'horizontal_rule', color: 'text-sky-400',
+                title: `🎯 Stable Focus at ~${avgFocus}%`,
+                text: 'Your focus pattern is consistent. Try a challenge: can you push your average above ' + Math.min(avgFocus + 10, 95) + '% next week?'
+            });
+        }
+
+        container.innerHTML = insights.map(ins => `
+            <div class="glass-panel rounded-xl p-4 flex items-start gap-3">
+                <span class="material-symbols-outlined ${ins.color} text-xl shrink-0 mt-0.5">${ins.icon}</span>
+                <div>
+                    <p class="text-sm font-bold text-dynamic mb-1">${ins.title}</p>
+                    <p class="text-xs text-dynamic-variant leading-relaxed">${ins.text}</p>
+                </div>
+            </div>`).join('');
+    }
+
     function biRenderAll() {
         if (!biViewActive) return;
         biRenderKpis();
@@ -2145,6 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         biRenderModality();
         biRenderNotifFeed();
         biRenderConnectionStatus(biConnected);
+        biRenderSparkline();
     }
 
     // ── IPC receiver ──

@@ -170,6 +170,9 @@ function buildWsStatePayload(contextState, vector, trigger) {
       interactionDensity: vector?.interactionDensity ?? 0,
       interactionCount1m: vector?.interactionCount1m ?? 0,
       interactionCount5m: vector?.interactionCount5m ?? 0,
+      inputModalityMix: vector?.inputModalityMix ?? { mousemove: 0, scroll: 0, keydown: 0, click: 0 },
+      avgScrollDepth: vector?.avgScrollDepth ?? 0,
+      focusScore: vector?.focusScore ?? 0,
       playlistActive: Boolean(vector?.playlistActive),
       extractedAt: vector?.extractedAt ?? Date.now(),
     },
@@ -210,6 +213,9 @@ async function runPipeline(trigger) {
 
   await safeSendMessage(pipelineMessage);
   await safeSendToActiveTabs(pipelineMessage);
+
+  // Send periodic telemetry over the bridge to the Electron dashboard
+  wsBridge?.send(pipelineMessage);
 
   await storage.savePipelineSnapshot({
     vector,

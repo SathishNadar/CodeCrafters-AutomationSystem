@@ -220,7 +220,7 @@ async function writePipelineSnapshot(payload) {
 async function writeStateChange(payload) {
     try {
         const dateKey = getTodayKey();
-        const state = payload.state?.state || payload.state;
+        const state = payload.state?.state || payload.state || 'unknown';
         const domain = payload.state?.currentDomain || payload.vector?.currentDomain || null;
 
         const stateChangesRef = collection(
@@ -377,6 +377,26 @@ async function onBrowserAppClose() {
     await flushBrowserSummary();
 }
 
+/**
+ * Fetch daily browser summaries for the last N days (default 7).
+ */
+async function getBrowserWeekSummaries(days = 7) {
+    const results = [];
+    for (let i = 0; i < days; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateKey = date.toISOString().split('T')[0];
+        try {
+            const summaryRef = doc(db, 'browser_sessions', DEVICE_ID, dateKey, 'summary');
+            const snap = await getDoc(summaryRef);
+            if (snap.exists()) {
+                results.push({ dateKey, ...snap.data() });
+            }
+        } catch (err) { /* silently skip missing days */ }
+    }
+    return results;
+}
+
 module.exports = {
     writePipelineSnapshot,
     writeStateChange,
@@ -384,6 +404,7 @@ module.exports = {
     flushBrowserSummary,
     getBrowserDaySummary,
     getBrowserDayEvents,
+    getBrowserWeekSummaries,
     onBrowserAppClose,
     DEVICE_ID,
 };
