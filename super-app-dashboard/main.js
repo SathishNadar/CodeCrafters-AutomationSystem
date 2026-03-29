@@ -6,6 +6,7 @@ const https = require('node:https');
 
 let mainWindow;
 let firestoreModule;
+const rulesEngine = require('./rules-engine.js');
 
 // Lazy-load Firestore (dynamic import for ESM compat)
 async function getFirestore() {
@@ -261,7 +262,16 @@ const server = http.createServer((req, res) => {
 
                 // 1. Forward to UI in real-time
                 if (mainWindow) {
-                    mainWindow.webContents.send('vscode-event', event);
+                    const uiPayload = event.payload || event;
+                    mainWindow.webContents.send('vscode-event', uiPayload);
+                }
+
+                if (event.type === 'state_change') {
+                    const rulesEngine = require('./rules-engine.js');
+                    rulesEngine.updateContext({
+                        isFocused: event.payload.state === 'focus',
+                        isIdle: event.payload.state === 'idle'
+                    });
                 }
 
                 // 2. Persist to Firestore asynchronously
@@ -301,6 +311,11 @@ ipcMain.handle('get-day-events', async (_, dateKey) => {
 ipcMain.handle('get-last-working-context', async () => {
     const fs = await getFirestore();
     return fs.getLastWorkingContext();
+});
+
+ipcMain.handle('get-week-summaries', async () => {
+    const fs = await getFirestore();
+    return fs.getWeekSummaries(7);
 });
 
 ipcMain.handle('google-login', async () => {
@@ -347,6 +362,9 @@ app.whenReady().then(() => {
     // Start background email monitoring
     initEmailMonitor(mainWindow);
     initWhatsAppMonitor(mainWindow);
+
+    // Initialize the Automation Rules Engine
+    rulesEngine.initialize(mainWindow);
 
     // Start WebExtension WebSocket bridge
     initWsBridge(mainWindow);
