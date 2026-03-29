@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-03-29T01:53:45.460Z",
+  "summary": {
+    "totalTests": 4,
+    "passedTests": 4
+  },
+  "ruleStatus": {
+    "rule_deep_work": true,
+    "rule_distraction": true,
+    "rule_focus_reply": false,
+    "rule_urgent_alarm": true
+  },
+  "contextState": {
+    "isFocused": false,
+    "isIdle": true,
+    "isDistracted": false,
+    "distractionStartTime": 1774748865458
+  },
+  "results": [
+    {
+      "name": "Deep Work Shield",
+      "scenario": "User is in deep focus mode, notifications arrive",
+      "passed": true,
+      "details": [
+        "Rule is active",
+        "WhatsApp - LOW: SUPPRESSED",
+        "Email - HIGH: SHOWN",
+        "WhatsApp - URGENT: SHOWN"
+      ]
+    },
+    {
+      "name": "Distraction Interceptor",
+      "scenario": "User browsing YouTube for 6+ minutes during work hours",
+      "passed": true,
+      "details": [
+        "Rule is active",
+        "Alert triggered after 6 minutes"
+      ]
+    },
+    {
+      "name": "Focused Auto-Responder",
+      "scenario": "User in focus mode, incoming messages arrive",
+      "passed": true,
+      "details": [
+        "Rule is not active"
+      ]
+    },
+    {
+      "name": "Urgent Escalation Alarm",
+      "scenario": "User is away/idle, urgent messages arrive",
+      "passed": true,
+      "details": [
+        "Rule is active",
+        "Alarm triggered for WhatsApp from Mom",
+        "Alarm triggered for Email from CTO",
+        "Silent notification: WhatsApp from Friend"
+      ]
+    }
+  ]
+}
