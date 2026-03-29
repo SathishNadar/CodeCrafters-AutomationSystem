@@ -1,10 +1,9 @@
-# CodeCrafters: Semantic Automation & Context Bridge 🚀
+# CodeCrafters: Focus Pilot 🚀
 
 [![Hackathon](https://img.shields.io/badge/Hackathon-Project-blueviolet.svg?style=for-the-badge)](https://github.com/SathishNadar/CodeCrafters-AutomationSystem)
-[![Status](https://img.shields.io/badge/Status-Beta-orange.svg?style=for-the-badge)](https://github.com/SathishNadar/CodeCrafters-AutomationSystem)
-[![License](https://img.shields.io/badge/License-ISC-blue.svg?style=for-the-badge)](LICENSE)
 
-> **Unlock Deep Focus.** A unified developer productivity ecosystem that bridges VS Code, your browser, and communication channels into a single context-aware dashboard.
+
+> **Master the Attention Economy.** Focus Pilot is a context-aware orchestration layer that reduces distraction by coordinating notifications, actions, and app signals across your entire workflow.
 
 ![Project Dashboard Header](assets/dashboard-preview.png)
 
@@ -16,16 +15,16 @@ In a world of constant context-switching, **CodeCrafters** acts as your cognitiv
 
 ## ✨ Core Features
 
-### 🖥️ Unified Productivity Dashboard (Electron)
+### 📜 The Core (Desktop Electron Orchestrator)
 The central hub for all signals. Visualize your "Deep Focus Score," track your flow state over time, and manage incoming alerts in a clean, glassmorphic interface.
 
-### 🌉 VS Code Context Bridge
+### ⚡ The Pulse (VS Code Context Extension)
 A powerful extension that streams developer activity signals:
 - **Typing Bursts & Editor Switches**: Tracks when you're deeply "in the zone."
 - **Diagnostics Monitor**: Detects when you're stuck on bugs and adjusts focus rules.
 - **Bi-directional Notifications**: Receive important system alerts directly in your status bar.
 
-### 🧭 Focus Pilot (Browser Extension)
+### 🧿 The Sight (Chrome Intelligence Extension)
 Stay focused on research. The extension tracks documentation viewing and cross-references it with your coding context to ensure you're on the right track.
 
 ### 💬 Intelligent Communication Nodes
@@ -52,19 +51,19 @@ Stay focused on research. The extension tracks documentation viewing and cross-r
 - [VS Code](https://code.visualstudio.com/)
 - Gmail API credentials (for Email service)
 
-### 1. The Dashboard (Central Hub)
+### 1. The Core (Central Hub)
 ```bash
 cd super-app-dashboard
 npm install
 npm start
 ```
 
-### 2. VS Code Context Bridge
+### 2. The Pulse (VS Code Extension)
 1. Open the `ContextBridge` folder in VS Code.
 2. Run `npm install`.
 3. Press `F5` to open the Extension Development Host.
 
-### 3. Focus Pilot (Web Extension)
+### 3. The Sight (Web Extension)
 1. Navigate to `chrome://extensions`.
 2. Enable **Developer Mode**.
 3. Click **Load unpacked** and select the `WebExtension` directory.
@@ -92,15 +91,10 @@ npm start
 
 Meet the team behind the magic:
 
-| [<img src="https://github.com/SathishNadar.png?size=100" width="100"><br><sub><b>Sathish Nadar</b></sub>](https://github.com/SathishNadar) | [<img src="https://github.com/janhvidhale04.png?size=100" width="100"><br><sub><b>Janhvi Dhale</b></sub>](https://github.com/janhvidhale04) | [<img src="https://github.com/t-naresh.png?size=100" width="100"><br><sub><b>Naresh T</b></sub>](https://github.com/t-naresh) | [<img src="https://github.com/Vrushabh-003.png?size=100" width="100"><br><sub><b>Vrushabh Shirke</b></sub>](https://github.com/Vrushabh-003) |
+| [<img src="https://github.com/SathishNadar.png?size=100" width="100"><br><sub><b>Sathish Nadar</b></sub>](https://github.com/SathishNadar) | [<img src="https://github.com/Vrushabh-003.png?size=100" width="100"><br><sub><b>Vrushabh Shirke</b></sub>](https://github.com/Vrushabh-003) | [<img src="https://github.com/janhvidhale04.png?size=100" width="100"><br><sub><b>Janhvi Dhale</b></sub>](https://github.com/janhvidhale04) | [<img src="https://github.com/t-naresh.png?size=100" width="100"><br><sub><b>Naresh T</b></sub>](https://github.com/t-naresh) |
 | :---: | :---: | :---: | :---: |
 
 ---
 
-## 📄 License
 
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<p align="center">Made with ❤️ for Hackathon 101</p>
+<p align="center">Made with passion for CodeCrafters 3.0</p>
