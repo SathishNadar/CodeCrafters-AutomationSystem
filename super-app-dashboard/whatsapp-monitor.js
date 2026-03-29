@@ -29,9 +29,35 @@ function initWhatsAppMonitor(mainWindow) {
          */
         const onMessage = async (msg, analysis) => {
             const { priority, task, sender } = analysis;
+            const rulesEngine = require('./rules-engine');
+            const ctx = rulesEngine.getContext();
 
-            // 1. Notify VS Code ONLY if High priority
-            if (priority === 'High') {
+            // --- RULE 3: Focused Auto-Responder (Low Priority Only) ---
+            if (rulesEngine.isRuleActive('rule_focus_reply') && ctx.isFocused && priority === 'Low') {
+                try {
+                    const { sendWhatsAppReply } = require(path.join(__dirname, '..', 'whatsapp-monitor-service', 'main.js'));
+                    await sendWhatsAppReply(msg.from, "Automatic Reply: I am currently deep in a coding task and have paused non-urgent notifications. I will review this later.");
+                    console.log(`[WhatsAppMonitorBridge] Triggered Focused Auto-Reply for ${sender}`);
+                } catch (e) {
+                    console.error('Failed focus reply:', e.message);
+                }
+            }
+
+            // --- RULE 4: Urgent Escalation Alarm ---
+            if (rulesEngine.isRuleActive('rule_urgent_alarm') && ctx.isIdle && priority === 'Urgent') {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('trigger-urgent-alarm', { sender, task, source: 'WhatsApp' });
+                }
+            }
+
+            // --- RULE 1: Deep Work Shield ---
+            // Shield ON = High priority only. Shield OFF = High + Medium.
+            let shouldPingVscode = (priority === 'High' || priority === 'Urgent');
+            if (!rulesEngine.isRuleActive('rule_deep_work')) {
+                shouldPingVscode = shouldPingVscode || priority === 'Medium';
+            }
+
+            if (shouldPingVscode) {
                 try {
                     const message = `📱 [${priority}] ${task} — from ${sender}`;
                     await axios.post(VSCODE_NOTIFY_URL, { message });

@@ -22,9 +22,37 @@ function initEmailMonitor(mainWindow) {
          */
         const onAnalysis = async (email, analysis) => {
             const { priority, task, sender } = analysis;
+            const rulesEngine = require('./rules-engine');
+            const ctx = rulesEngine.getContext();
 
-            // 1. Notify VS Code ONLY if High/Urgent
-            if (priority === "High" || priority === "Urgent") {
+            // --- RULE 3: Focused Auto-Responder (Low Priority Only) ---
+            if (rulesEngine.isRuleActive('rule_focus_reply') && ctx.isFocused && priority === 'Low') {
+                if (sendEmailReply) {
+                    try {
+                        const replyContent = "Automatic Reply:\nI am currently deep in a coding task and have paused non-urgent notifications. I will review this email later.";
+                        await sendEmailReply(email.from, `Re: ${email.subject}`, replyContent, email.threadId, email.messageId);
+                        console.log(`[EmailMonitorBridge] Triggered Focused Auto-Reply to ${email.from}`);
+                    } catch (e) {
+                        console.error('[EmailMonitorBridge] Failed focus reply:', e.message);
+                    }
+                }
+            }
+
+            // --- RULE 4: Urgent Escalation Alarm ---
+            if (rulesEngine.isRuleActive('rule_urgent_alarm') && ctx.isIdle && priority === 'Urgent') {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('trigger-urgent-alarm', { sender: sender || email.from, task, source: 'Email' });
+                }
+            }
+
+            // --- RULE 1: Deep Work Shield ---
+            // Shield ON = High/Urgent priority only. Shield OFF = High/Urgent + Medium.
+            let shouldPingVscode = (priority === "High" || priority === "Urgent");
+            if (!rulesEngine.isRuleActive('rule_deep_work')) {
+                shouldPingVscode = shouldPingVscode || priority === "Medium";
+            }
+
+            if (shouldPingVscode) {
                 try {
                     const message = `📬 [${priority}] ${task} - from ${sender || email.from}`;
                     await axios.post(VSCODE_NOTIFY_URL, { message });

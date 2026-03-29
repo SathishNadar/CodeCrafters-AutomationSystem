@@ -466,11 +466,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewName === 'vscode-context') {
             document.getElementById('vc-filter-live')?.addEventListener('click', () => {
                 vscodeContextMode = 'live';
+                weeklyData = null;
                 renderVsCodeContextView();
             });
             document.getElementById('vc-filter-last-working')?.addEventListener('click', async () => {
                 vscodeContextMode = 'last-working';
-                await fetchLastWorkingContext();
+                await fetchAndRenderWeekly();
             });
             renderVsCodeContextView();
         }
@@ -726,19 +727,44 @@ document.addEventListener('DOMContentLoaded', () => {
         return payload.file ? `Working in ${payload.file.split('/').pop()}.` : 'Activity pulse received from VS Code.';
     }
 
+    function updateDialVisual(load) {
+        const maxLoad = 60;
+        const arcEl = document.getElementById('vc-load-arc');
+        const loadScoreEl = document.getElementById('vc-load-score');
+        if (!arcEl || !loadScoreEl) return;
+        const loadScore = Math.min(load, maxLoad);
+        loadScoreEl.textContent = Math.round(load);
+        const circumference = 2 * Math.PI * 42;
+        arcEl.style.strokeDashoffset = circumference - (loadScore / maxLoad) * circumference;
+        let color = '#34d399';
+        if (load >= 40) color = '#f43f5e';
+        else if (load >= 20) color = '#fbbf24';
+        arcEl.style.stroke = color;
+        document.getElementById('vc-load-label').textContent = load >= 40 ? 'High Pressure' : (load >= 20 ? 'Moderate Effort' : 'Cruising');
+        document.getElementById('vc-load-label').style.color = color;
+    }
+
     function renderVsCodeContextView() {
         const stateEl = document.getElementById('vc-state');
         if (!stateEl) return;
 
-        const useLastWorking = vscodeContextMode === 'last-working';
-        const snap = useLastWorking
-            ? (lastWorkingContext?.snapshot || latestCognitiveSnapshot || analytics.getSnapshot())
-            : (latestCognitiveSnapshot || analytics.getSnapshot());
-        const payload = useLastWorking ? lastWorkingContext?.event : latestVsCodePayload;
+        const useWeekly = vscodeContextMode === 'last-working';
+
+        document.getElementById('vc-filter-live')?.classList.toggle('active', !useWeekly);
+        document.getElementById('vc-filter-last-working')?.classList.toggle('active', useWeekly);
+
+        if (useWeekly) {
+            renderWeeklyAnalysis();
+            return;
+        }
+
+        // --- LIVE STREAM MODE ---
+        const snap = latestCognitiveSnapshot || analytics.getSnapshot();
+        const payload = latestVsCodePayload;
 
         stateEl.textContent = snap?.stateInfo?.label || 'Idle';
         document.getElementById('vc-load').textContent = snap?.cognitiveLoad ?? 0;
-        document.getElementById('vc-latest-event').textContent = payload ? formatEventTitle(payload.event) : 'Waiting for VS Code activity...';
+        document.getElementById('vc-latest-event').textContent = payload ? formatEventTitle(payload.event) : 'Waiting for activity...';
         document.getElementById('vc-file').textContent = payload?.file || 'No file detected yet';
         document.getElementById('vc-language').textContent = payload?.language || snap?.session?.primaryLanguage || '--';
         document.getElementById('vc-time').textContent = formatTimestamp(payload?.timestamp);
@@ -748,18 +774,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('vc-errors').textContent = payload?.error_count ?? 0;
         document.getElementById('vc-session-min').textContent = snap?.session?.sessionMinutes ?? 0;
         document.getElementById('vc-raw-payload').textContent = payload ? JSON.stringify(payload, null, 2) : 'No payload received yet.';
-        document.getElementById('vc-source').textContent = useLastWorking ? 'Last saved work from Firebase' : 'Live ContextBridge stream';
-        document.getElementById('vc-date-key').textContent = useLastWorking ? (lastWorkingContext?.dateKey || 'No saved session found') : 'Current session';
-        document.getElementById('vc-filter-live')?.classList.toggle('active', !useLastWorking);
-        document.getElementById('vc-filter-last-working')?.classList.toggle('active', useLastWorking);
+        document.getElementById('vc-source').textContent = 'Live ContextBridge stream';
+        document.getElementById('vc-date-key').textContent = 'Current session';
+
+        updateDialVisual(snap?.cognitiveLoad ?? 0);
 
         const eventList = document.getElementById('vc-event-list');
         if (eventList) {
-            const items = useLastWorking ? (payload ? [payload] : []) : vscodeEventHistory;
-            if (!items.length) {
-                eventList.innerHTML = '<div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant">Waiting for VS Code activity...</div>';
+            if (!vscodeEventHistory.length) {
+                eventList.innerHTML = '<div class="glass-panel rounded-2xl p-4 text-sm text-dynamic-variant text-center">Waiting for VS Code activity...</div>';
             } else {
-                eventList.innerHTML = items.map(item => `
+                eventList.innerHTML = vscodeEventHistory.map(item => `
                     <div class="glass-panel rounded-2xl p-4 border-l-4 border-secondary-dynamic">
                         <div class="flex items-center justify-between gap-3">
                             <div class="font-semibold text-dynamic text-sm">${formatEventTitle(item.event)}</div>
@@ -772,11 +797,107 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let weeklyData = null;
+
+    async function fetchAndRenderWeekly() {
+        document.getElementById('vc-state').textContent = 'Loading...';
+        try {
+            weeklyData = await ipcRenderer.invoke('get-week-summaries');
+            renderVsCodeContextView();
+        } catch (e) {
+            console.error('Failed to fetch weekly summaries:', e);
+        }
+    }
+
+    function renderWeeklyAnalysis() {
+        const data = weeklyData;
+        if (!data || !data.length) {
+            document.getElementById('vc-state').textContent = 'No History Found';
+            document.getElementById('vc-event-list').innerHTML = `
+                <div class="glass-panel rounded-2xl p-6 text-center">
+                    <span class="material-symbols-outlined text-4xl text-dynamic-variant mb-2">sentiment_dissatisfied</span>
+                    <p class="text-sm text-dynamic-variant">No weekly history available yet. Run <code class="bg-black/30 px-1 rounded">node generate-history.js</code> from the project root to seed demo data.</p>
+                </div>`;
+            return;
+        }
+
+        // Aggregate across all days
+        const totalFocusMin = data.reduce((s, d) => s + (d.focusMinutes || 0), 0);
+        const totalSaves = data.reduce((s, d) => s + (d.saves || 0), 0);
+        const totalCommits = data.reduce((s, d) => s + (d.commits || 0), 0);
+        const avgLoad = Math.round(data.reduce((s, d) => s + (d.cognitiveLoadAvg || 0), 0) / data.length);
+        const langCounts = {};
+        data.forEach(d => { if (d.primaryLanguage) langCounts[d.primaryLanguage] = (langCounts[d.primaryLanguage] || 0) + 1; });
+        const topLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '--';
+        const focusHours = (totalFocusMin / 60).toFixed(1);
+        const maxFocus = Math.max(...data.map(d => d.focusMinutes || 0));
+
+        // Hero overwrite
+        document.getElementById('vc-state').textContent = `${focusHours}h Focused This Week`;
+        document.getElementById('vc-load').textContent = avgLoad;
+        document.getElementById('vc-session-min').textContent = totalFocusMin;
+        document.getElementById('vc-latest-event').textContent = `${data.length} active days recorded`;
+        document.getElementById('vc-source').textContent = '7-Day Firestore Analysis';
+        document.getElementById('vc-date-key').textContent = `${data[data.length - 1]?.dateKey || ''} → ${data[0]?.dateKey || ''}`;
+        document.getElementById('vc-language').textContent = topLang;
+
+        // Side metrics
+        document.getElementById('vc-chars').textContent = totalSaves;
+        document.getElementById('vc-switches').textContent = totalCommits;
+        document.getElementById('vc-errors').textContent = `${avgLoad}%`;
+
+        // Center Context Map — reuse as KPI grid
+        document.getElementById('vc-file').textContent = `${focusHours} hours across ${data.length} days`;
+        document.getElementById('vc-time').textContent = data[0]?.dateKey || '--';
+        document.getElementById('vc-summary').textContent = `Peak day: ${maxFocus} min. Top language: ${topLang}. ${totalCommits} total commits.`;
+
+        // Raw payload → show daily bar chart as ASCII
+        const rawEl = document.getElementById('vc-raw-payload');
+        if (rawEl) {
+            const chartLines = data.slice().reverse().map(d => {
+                const mins = d.focusMinutes || 0;
+                const bars = Math.round(mins / 20);
+                const bar = '█'.repeat(Math.min(bars, 25)).padEnd(25, '░');
+                return `${d.dateKey.slice(5)}  ${bar}  ${mins}m`;
+            });
+            rawEl.textContent = `── FOCUS HEATMAP (last 7 days) ──\n\n${chartLines.join('\n')}\n\n── COMMITS: ${totalCommits}  SAVES: ${totalSaves}  AVG LOAD: ${avgLoad}% ──`;
+        }
+
+        // Timeline — show per-day breakdown cards
+        const eventList = document.getElementById('vc-event-list');
+        if (eventList) {
+            eventList.innerHTML = data.map(d => {
+                const focH = (d.focusMinutes / 60).toFixed(1);
+                const stateBreak = d.stateBreakdown || {};
+                const bugMin = Math.round((stateBreak.bug_hunt || 0));
+                const focusChip = `<span class="inline-block bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-semibold">${focH}h Focus</span>`;
+                const bugChip = bugMin > 0 ? `<span class="inline-block bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-semibold">${bugMin}m Bug Fixing</span>` : '';
+                const commitChip = d.commits > 0 ? `<span class="inline-block bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded-full font-semibold">${d.commits} Commits</span>` : '';
+                const dayLabel = new Date(d.dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                return `
+                    <div class="glass-panel rounded-2xl p-4 border-l-4 border-secondary-dynamic">
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <div class="font-semibold text-dynamic text-sm">${dayLabel}</div>
+                            <div class="text-[10px] font-mono text-dynamic-variant">${d.primaryLanguage || '--'}</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">${focusChip}${bugChip}${commitChip}</div>
+                        <div class="text-[11px] text-dynamic-variant mt-2">${d.saves || 0} saves · Load Avg ${d.cognitiveLoadAvg || 0}%</div>
+                    </div>`;
+            }).join('');
+        }
+
+        updateDialVisual(avgLoad);
+    }
+
     function addFeedCard(payload) {
         const feed = document.getElementById('vscode-activity-feed');
         if (!feed) return;
 
         const { event: evType, file, timestamp, duration_seconds, char_count, switch_count, error_count, to_state } = payload;
+        
+        // Silence generic or empty events so they don't pollute the UI as "Activity Pulse"
+        if (!evType || evType === 'event') return;
+
         const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const icon = ICON_MAP[evType] || 'api';
         const title = evType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -1356,8 +1477,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
+        } else if (viewName === 'rules') {
+            const rulesContainer = document.getElementById('rules-container');
+            if (rulesContainer) {
+                // Fetch current config and render
+                ipcRenderer.invoke('get-context-rules').then(rules => {
+                    renderRules(rules, rulesContainer);
+                });
+            }
         }
-    };
+    }
+
+    function renderRules(rules, container) {
+        container.innerHTML = '';
+        rules.forEach(rule => {
+            const isActive = rule.active;
+            const opacityClass = isActive ? 'opacity-100' : 'opacity-70 hover:opacity-100';
+            const statusColor = isActive ? 'text-primary-dynamic' : 'text-dynamic-variant';
+            const btnClass = isActive 
+                ? 'bg-primary-dynamic text-white border-primary-dynamic' 
+                : 'bg-transparent border-dynamic text-dynamic hover:bg-[var(--surface-higher)]';
+            const btnText = isActive ? 'Active' : 'Inactive';
+
+            const card = document.createElement('div');
+            card.className = `glass-panel p-6 rounded-xl space-y-4 transition-all duration-300 ${opacityClass}`;
+            card.innerHTML = `
+                <div class="flex items-center justify-between border-b border-dynamic pb-4">
+                    <div>
+                        <h4 class="font-bold text-dynamic">${rule.title}</h4>
+                        <p class="text-sm text-dynamic-variant mt-1">${rule.description}</p>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center pt-2">
+                    <span class="text-xs font-medium ${statusColor}">System hooked</span>
+                    <button class="rule-toggle-btn px-4 py-1.5 border rounded-full text-xs font-bold transition-colors ${btnClass}" data-id="${rule.id}">
+                        ${btnText}
+                    </button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+        // Attach listeners to new buttons
+        document.querySelectorAll('.rule-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const ruleId = e.target.getAttribute('data-id');
+                // Optimistic UI could go here, but let's re-render from backend truth
+                const updatedRules = await ipcRenderer.invoke('toggle-rule', ruleId);
+                renderRules(updatedRules, container);
+            });
+        });
+    }
 
     // ══════════════════════════════════════════════════════════
     // 7. Browser Intelligence (WebExtension WebSocket Bridge)
@@ -1762,6 +1932,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (error) console.error('[WhatsApp QR]', error);
             });
         }
+    });
+
+    // --- Critical Escalation Alarm UI logic ---
+    ipcRenderer.on('trigger-urgent-alarm', (_, data) => {
+        // Build an ultra-aggressive full-screen overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'urgent-alarm-overlay';
+        overlay.className = 'fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-red-600/95 text-white backdrop-blur-md animate-pulse';
+        overlay.innerHTML = `
+            <span class="material-symbols-outlined text-[100px] mb-4 text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">warning</span>
+            <h1 class="text-6xl font-bold mb-4 tracking-widest text-center shadow-black drop-shadow-lg">URGENT NOTIFICATION</h1>
+            <p class="text-3xl font-medium max-w-2xl text-center px-6 leading-tight flex-1 flex items-center">${data.task}</p>
+            <p class="text-xl opacity-80 mt-4 mb-10">Arrived via ${data.source} from: <span class="font-bold">${data.sender}</span></p>
+            
+            <button id="dismiss-alarm-btn" class="px-10 py-5 bg-white text-red-600 font-black text-xl rounded-full hover:scale-110 hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] transition-all shadow-xl">
+                DISMISS ALARM & RETURN TO WORK
+            </button>
+        `;
+        document.body.appendChild(overlay);
+
+        // Web Audio API for a loud repetitive beep
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isAlarmPlaying = true;
+        
+        function playSiren() {
+            if (!isAlarmPlaying) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sawtooth';
+            // Start high, drop fast like a siren
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.4);
+            
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.4);
+            
+            setTimeout(playSiren, 500);
+        }
+
+        // Must resume context first to satisfy browser auto-play policies (though Electron usually ignores them)
+        audioCtx.resume().then(() => playSiren());
+
+        document.getElementById('dismiss-alarm-btn').addEventListener('click', () => {
+            isAlarmPlaying = false;
+            audioCtx.close();
+            overlay.remove();
+        });
     });
 
     // Default Initialization

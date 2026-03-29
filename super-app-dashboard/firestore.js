@@ -186,4 +186,27 @@ async function onAppClose() {
     await flushSummary();
 }
 
-module.exports = { writeEvent, flushSummary, getDaySummary, getDayEvents, getLastWorkingContext, onAppClose, DEVICE_ID };
+/**
+ * Fetch summary documents for the last N days (default 7).
+ * Returns an array of summary objects, one per available day.
+ */
+async function getWeekSummaries(days = 7) {
+    const results = [];
+    for (let i = 0; i < days; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateKey = date.toISOString().split('T')[0];
+        try {
+            const summaryRef = doc(db, 'sessions', DEVICE_ID, dateKey, 'summary');
+            const snap = await getDoc(summaryRef);
+            if (snap.exists()) {
+                results.push({ dateKey, ...snap.data() });
+            }
+        } catch (err) {
+            // silently skip missing days
+        }
+    }
+    return results;
+}
+
+module.exports = { writeEvent, flushSummary, getDaySummary, getDayEvents, getLastWorkingContext, getWeekSummaries, onAppClose, DEVICE_ID };

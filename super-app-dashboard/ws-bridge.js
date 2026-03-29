@@ -95,6 +95,16 @@ function handleExtensionMessage(payload, socket) {
             break;
 
         case 'PIPELINE_UPDATE': {
+            // Forward context to Rules Engine
+            if (payload.pipeline && Object.keys(payload.pipeline).length > 0) {
+                const rulesEngine = require('./rules-engine');
+                const p = payload.pipeline;
+                // If it's a focus state
+                if (p.toState) {
+                    rulesEngine.updateContext({ isDistracted: p.toState === 'Distracted' });
+                }
+            }
+
             // Throttle renderer IPC to 1 per second
             const now = Date.now();
             if (now - _lastPipelineForward >= 1000) {
